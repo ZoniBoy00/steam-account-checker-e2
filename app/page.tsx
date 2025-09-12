@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,6 +27,7 @@ import {
   Settings,
   Scale,
   Lock,
+  Github,
 } from "lucide-react"
 import { AccountTable } from "@/components/account-table"
 import { StatsCards } from "@/components/stats-cards"
@@ -36,6 +36,7 @@ import { ProgressDisplay } from "@/components/progress-display"
 import { SettingsPanel } from "@/components/settings-panel"
 import { HelpModal } from "@/components/help-modal"
 import { checkSteamAccounts } from "@/lib/steam-checker"
+import { SecurityUtils } from "@/lib/security"
 import type { SteamAccount, CheckStats } from "@/lib/types"
 
 export default function SteamCheckerPage() {
@@ -68,15 +69,35 @@ export default function SteamCheckerPage() {
   useEffect(() => {
     const savedApiKey = localStorage.getItem("steam_api_key")
     if (savedApiKey) {
-      setApiKey(savedApiKey)
+      try {
+        const decryptedKey = SecurityUtils.decryptFromStorage(savedApiKey)
+        if (SecurityUtils.validateApiKey(decryptedKey)) {
+          setApiKey(decryptedKey)
+        } else {
+          // Invalid key, remove it
+          localStorage.removeItem("steam_api_key")
+        }
+      } catch {
+        // Fallback for old plain text keys
+        if (SecurityUtils.validateApiKey(savedApiKey)) {
+          setApiKey(savedApiKey)
+        } else {
+          localStorage.removeItem("steam_api_key")
+        }
+      }
     }
   }, [])
 
   const saveApiKey = useCallback(() => {
-    if (apiKey.trim()) {
-      localStorage.setItem("steam_api_key", apiKey.trim())
+    const sanitizedKey = SecurityUtils.sanitizeInput(apiKey.trim())
+    if (sanitizedKey && SecurityUtils.validateApiKey(sanitizedKey)) {
+      const encryptedKey = SecurityUtils.encryptForStorage(sanitizedKey)
+      localStorage.setItem("steam_api_key", encryptedKey)
       setSuccess("Steam API key saved successfully!")
       setTimeout(() => setSuccess(""), 3000)
+    } else {
+      setError("Invalid Steam API key format. Please check your key.")
+      setTimeout(() => setError(""), 3000)
     }
   }, [apiKey])
 
@@ -91,16 +112,41 @@ export default function SteamCheckerPage() {
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
       if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          // 5MB limit
+          setError("File too large. Maximum size is 5MB.")
+          setTimeout(() => setError(""), 3000)
+          return
+        }
+
+        if (!file.type.includes("text") && !file.name.endsWith(".txt") && !file.name.endsWith(".csv")) {
+          setError("Invalid file type. Please upload a text file.")
+          setTimeout(() => setError(""), 3000)
+          return
+        }
+
         const reader = new FileReader()
         reader.onload = (e) => {
           const content = e.target?.result as string
           if (content) {
+            const validation = SecurityUtils.validateFileContent(content)
+            if (!validation.valid) {
+              setError(validation.error || "Invalid file content")
+              setTimeout(() => setError(""), 3000)
+              return
+            }
+
+            const sanitizedContent = SecurityUtils.sanitizeInput(content)
             const existingTokens = tokens.trim()
-            const newTokens = existingTokens ? `${existingTokens}\n${content}` : content
+            const newTokens = existingTokens ? `${existingTokens}\n${sanitizedContent}` : sanitizedContent
             setTokens(newTokens)
-            setSuccess(`Imported ${content.split("\n").filter((t) => t.trim()).length} tokens from file`)
+            setSuccess(`Imported ${sanitizedContent.split("\n").filter((t) => t.trim()).length} tokens from file`)
             setTimeout(() => setSuccess(""), 3000)
           }
+        }
+        reader.onerror = () => {
+          setError("Failed to read file")
+          setTimeout(() => setError(""), 3000)
         }
         reader.readAsText(file)
       }
@@ -137,6 +183,12 @@ export default function SteamCheckerPage() {
       return
     }
 
+    const sanitizedApiKey = SecurityUtils.sanitizeInput(apiKey.trim())
+    if (!SecurityUtils.validateApiKey(sanitizedApiKey)) {
+      setError("Invalid Steam API key format")
+      return
+    }
+
     setError("")
     setIsChecking(true)
     setProgress(0)
@@ -146,10 +198,15 @@ export default function SteamCheckerPage() {
     try {
       const tokenList = tokens
         .split("\n")
-        .map((token) => token.trim())
-        .filter((token) => token.length > 0)
+        .map((token) => SecurityUtils.sanitizeInput(token.trim()))
+        .filter((token) => token.length > 0 && SecurityUtils.validateSteamToken(token))
 
-      const results = await checkSteamAccounts(tokenList, apiKey, (current, total) => {
+      if (tokenList.length === 0) {
+        setError("No valid tokens found. Please check your token format.")
+        return
+      }
+
+      const results = await checkSteamAccounts(tokenList, sanitizedApiKey, (current, total) => {
         setCurrentAccount(current)
         setProgress((current / total) * 100)
       })
@@ -276,6 +333,17 @@ export default function SteamCheckerPage() {
 
           <div className="flex items-center justify-center gap-4 mt-6">
             <HelpModal />
+            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200" asChild>
+              <a
+                href="https://github.com/ZoniBoy00"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center"
+              >
+                <Github className="h-4 w-4 mr-2" />
+                GitHub
+              </a>
+            </Button>
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200">

@@ -1,40 +1,77 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// Simple in-memory rate limiting (shared with profile route)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+const rateLimitMap = new Map<string, { count: number; resetTime: number; blocked: boolean }>()
 
-function checkRateLimit(ip: string): boolean {
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
   const now = Date.now()
   const windowMs = 60 * 1000 // 1 minute window
-  const maxRequests = 30 // Max 30 requests per minute per IP
+  const maxRequests = 20 // Reduced from 30 to 20 for better security
+  const blockDuration = 5 * 60 * 1000 // 5 minutes block for abuse
 
   const current = rateLimitMap.get(ip)
 
+  // Check if IP is currently blocked
+  if (current?.blocked && now < current.resetTime) {
+    return { allowed: false, remaining: 0 }
+  }
+
   if (!current || now > current.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs })
-    return true
+    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs, blocked: false })
+    return { allowed: true, remaining: maxRequests - 1 }
   }
 
   if (current.count >= maxRequests) {
-    return false
+    // Block IP for repeated abuse
+    current.blocked = true
+    current.resetTime = now + blockDuration
+    return { allowed: false, remaining: 0 }
   }
 
   current.count++
-  return true
+  return { allowed: true, remaining: maxRequests - current.count }
 }
 
 function validateSteamId(steamId: string): boolean {
-  return /^\d{17}$/.test(steamId)
+  if (!steamId || typeof steamId !== "string") return false
+
+  // Remove any potential XSS characters
+  const sanitized = steamId.replace(/[<>'"&]/g, "")
+
+  // Steam ID should be exactly 17 digits and start with 7656119
+  return /^7656119\d{10}$/.test(sanitized)
 }
 
 function validateApiKey(apiKey: string): boolean {
-  return /^[A-Fa-f0-9]{32}$/.test(apiKey)
+  if (!apiKey || typeof apiKey !== "string") return false
+
+  // Remove any potential XSS characters
+  const sanitized = apiKey.replace(/[<>'"&]/g, "")
+
+  // Steam API keys are exactly 32 character hex strings
+  return /^[A-Fa-f0-9]{32}$/.test(sanitized) && sanitized.length === 32
+}
+
+function sanitizeInput(input: string): string {
+  if (typeof input !== "string") return ""
+  return input.replace(/[<>'"&]/g, "").trim()
 }
 
 export async function GET(request: NextRequest) {
-  const ip = request.ip || request.headers.get("x-forwarded-for") || "unknown"
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Rate limit exceeded. Please try again later." }, { status: 429 })
+  const forwarded = request.headers.get("x-forwarded-for")
+  const ip = forwarded ? forwarded.split(",")[0].trim() : request.ip || "unknown"
+
+  const rateLimit = checkRateLimit(ip)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Remaining": "0",
+          "Retry-After": "300",
+        },
+      },
+    )
   }
 
   const searchParams = request.nextUrl.searchParams
@@ -45,27 +82,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Steam ID and API key are required" }, { status: 400 })
   }
 
-  if (!validateSteamId(steamId)) {
+  const sanitizedSteamId = sanitizeInput(steamId)
+  const sanitizedApiKey = sanitizeInput(apiKey)
+
+  if (!validateSteamId(sanitizedSteamId)) {
     return NextResponse.json({ error: "Invalid Steam ID format" }, { status: 400 })
   }
 
-  if (!validateApiKey(apiKey)) {
+  if (!validateApiKey(sanitizedApiKey)) {
     return NextResponse.json({ error: "Invalid API key format" }, { status: 400 })
   }
 
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 8000) // Reduced timeout for better UX
 
-    const response = await fetch(
-      `https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=${apiKey}&steamids=${steamId}`,
-      {
-        headers: {
-          "User-Agent": "Steam Account Checker/1.0",
-        },
-        signal: controller.signal,
+    const apiUrl = new URL("https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/")
+    apiUrl.searchParams.set("key", sanitizedApiKey)
+    apiUrl.searchParams.set("steamids", sanitizedSteamId)
+
+    const response = await fetch(apiUrl.toString(), {
+      headers: {
+        "User-Agent": "Steam Account Checker/2.0",
+        Accept: "application/json",
+        "Cache-Control": "no-cache",
       },
-    )
+      signal: controller.signal,
+    })
 
     clearTimeout(timeoutId)
 
@@ -73,33 +116,51 @@ export async function GET(request: NextRequest) {
       if (response.status === 403) {
         return NextResponse.json({ error: "Invalid API key or insufficient permissions" }, { status: 403 })
       }
+      if (response.status === 401) {
+        return NextResponse.json({ error: "Unauthorized: Invalid API key" }, { status: 401 })
+      }
       throw new Error(`Steam API request failed: ${response.status}`)
     }
 
     const data = await response.json()
 
-    if (data.players && data.players.length > 0) {
+    if (data?.players?.length > 0) {
       const player = data.players[0]
-      return NextResponse.json({
-        VACBanned: player.VACBanned || false,
-        CommunityBanned: player.CommunityBanned || false,
-        EconomyBan: player.EconomyBan || "none",
-        NumberOfVACBans: player.NumberOfVACBans || 0,
-        DaysSinceLastBan: player.DaysSinceLastBan || 0,
-        NumberOfGameBans: player.NumberOfGameBans || 0,
-        SteamID: steamId,
+
+      const sanitizedResponse = {
+        VACBanned: Boolean(player.VACBanned),
+        CommunityBanned: Boolean(player.CommunityBanned),
+        EconomyBan: sanitizeInput(player.EconomyBan || "none"),
+        NumberOfVACBans: Number(player.NumberOfVACBans) || 0,
+        DaysSinceLastBan: Number(player.DaysSinceLastBan) || 0,
+        NumberOfGameBans: Number(player.NumberOfGameBans) || 0,
+        SteamID: sanitizedSteamId,
+      }
+
+      return NextResponse.json(sanitizedResponse, {
+        headers: {
+          "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+          "Cache-Control": "private, no-cache",
+        },
       })
     }
 
-    return NextResponse.json({
-      VACBanned: false,
-      CommunityBanned: false,
-      EconomyBan: "none",
-      NumberOfVACBans: 0,
-      DaysSinceLastBan: 0,
-      NumberOfGameBans: 0,
-      SteamID: steamId,
-    })
+    return NextResponse.json(
+      {
+        VACBanned: false,
+        CommunityBanned: false,
+        EconomyBan: "none",
+        NumberOfVACBans: 0,
+        DaysSinceLastBan: 0,
+        NumberOfGameBans: 0,
+        SteamID: sanitizedSteamId,
+      },
+      {
+        headers: {
+          "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+        },
+      },
+    )
   } catch (error) {
     console.error("Error fetching Steam bans:", error)
 

@@ -5,7 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Upload, Download, Trash2, CheckCircle, Clock } from "lucide-react"
+import { FileText, Upload, Download, Trash2, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import { SecurityUtils } from "@/lib/security"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useState } from "react"
 
 interface TokenInputProps {
   tokens: string
@@ -28,7 +31,70 @@ export function TokenInput({
   onClearTokens,
   canCheck,
 }: TokenInputProps) {
+  const [validationError, setValidationError] = useState("")
+
   const tokenCount = tokens.split("\n").filter((t) => t.trim()).length
+
+  const validTokenCount = tokens.split("\n").filter((t) => {
+    const trimmed = t.trim()
+    return trimmed && SecurityUtils.validateSteamToken(trimmed)
+  }).length
+
+  const handleTokenChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value
+
+    // Basic length check to prevent excessive input
+    if (newValue.length > 1024 * 1024) {
+      // 1MB limit
+      setValidationError("Input too large. Maximum size is 1MB.")
+      return
+    }
+
+    // Clear validation error if input is valid
+    if (validationError) {
+      setValidationError("")
+    }
+
+    // Sanitize input to prevent XSS
+    const sanitized = SecurityUtils.sanitizeInput(newValue)
+    setTokens(sanitized)
+  }
+
+  const handleSecureFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Reset file input
+    event.target.value = ""
+
+    // Enhanced file validation
+    if (file.size > 10 * 1024 * 1024) {
+      // 10MB limit
+      setValidationError("File too large. Maximum size is 10MB.")
+      return
+    }
+
+    // Validate file type more strictly
+    const allowedTypes = ["text/plain", "text/csv", "application/csv"]
+    const allowedExtensions = [".txt", ".csv"]
+
+    const hasValidType = allowedTypes.includes(file.type)
+    const hasValidExtension = allowedExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
+
+    if (!hasValidType && !hasValidExtension) {
+      setValidationError("Invalid file type. Only .txt and .csv files are allowed.")
+      return
+    }
+
+    // Check for suspicious file names
+    const suspiciousPatterns = [/\.exe$/i, /\.js$/i, /\.html$/i, /\.php$/i, /\.bat$/i, /\.cmd$/i]
+    if (suspiciousPatterns.some((pattern) => pattern.test(file.name))) {
+      setValidationError("Suspicious file type detected. Please use only text files.")
+      return
+    }
+
+    onFileUpload(event)
+  }
 
   return (
     <Card className="bg-slate-800/50 border-slate-700">
@@ -39,10 +105,17 @@ export function TokenInput({
         </CardTitle>
         <CardDescription className="text-slate-400">
           Import tokens via text input or file upload. Supports multiple formats including username----JWT and direct
-          JWT tokens.
+          JWT tokens. All input is validated for security.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {validationError && (
+          <Alert variant="destructive" className="border-red-500/50 bg-red-500/10">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{validationError}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex items-center gap-2 mb-4">
           <Button
             variant="outline"
@@ -74,7 +147,15 @@ export function TokenInput({
             <Trash2 className="h-4 w-4 mr-2" />
             Clear All
           </Button>
-          <input id="file-upload" type="file" accept=".txt,.csv" onChange={onFileUpload} className="hidden" />
+          <input
+            id="file-upload"
+            type="file"
+            accept=".txt,.csv,text/plain,text/csv"
+            onChange={handleSecureFileUpload}
+            className="hidden"
+            multiple={false}
+            autoComplete="off"
+          />
         </div>
 
         <Textarea
@@ -86,7 +167,7 @@ export function TokenInput({
 
 Paste your tokens below or use the Import File button above.`}
           value={tokens}
-          onChange={(e) => setTokens(e.target.value)}
+          onChange={handleTokenChange}
           className="min-h-[400px] font-mono text-xs bg-slate-900/50 border-slate-600 text-slate-200 placeholder:text-slate-500 resize-none overflow-auto"
           disabled={isChecking}
           style={{
@@ -95,6 +176,9 @@ Paste your tokens below or use the Import File button above.`}
             overflowWrap: "anywhere",
             whiteSpace: "pre-wrap",
           }}
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={1024 * 1024} // 1MB limit
         />
 
         <div className="flex items-center justify-between">
@@ -103,6 +187,18 @@ Paste your tokens below or use the Import File button above.`}
               {tokenCount} tokens loaded
             </Badge>
             {tokenCount > 0 && (
+              <>
+                <Badge variant="outline" className="border-green-600 text-green-400">
+                  {validTokenCount} valid tokens
+                </Badge>
+                {validTokenCount !== tokenCount && (
+                  <Badge variant="outline" className="border-yellow-600 text-yellow-400">
+                    {tokenCount - validTokenCount} invalid tokens
+                  </Badge>
+                )}
+              </>
+            )}
+            {validTokenCount > 0 && (
               <Badge variant="outline" className="border-blue-600 text-blue-400">
                 Ready to check
               </Badge>
@@ -110,7 +206,7 @@ Paste your tokens below or use the Import File button above.`}
           </div>
           <Button
             onClick={onCheck}
-            disabled={!canCheck || isChecking}
+            disabled={!canCheck || isChecking || validTokenCount === 0}
             className="min-w-[140px] bg-blue-600 hover:bg-blue-700"
           >
             {isChecking ? (
