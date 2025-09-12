@@ -18,6 +18,8 @@ export async function checkSteamAccounts(
     vac_banned: 0,
     community_banned: 0,
     economy_banned: 0,
+    account_not_found: 0,
+    limited_profile: 0,
   }
 
   for (let i = 0; i < tokens.length; i++) {
@@ -35,6 +37,18 @@ export async function checkSteamAccounts(
           break
         case "expired":
           stats.expired++
+          break
+        case "invalid":
+          stats.invalid++
+          break
+        case "invalid jwt":
+          stats.invalid++
+          break
+        case "account not found":
+          stats.account_not_found++
+          break
+        case "limited profile":
+          stats.limited_profile++
           break
         default:
           stats.invalid++
@@ -110,20 +124,36 @@ async function processToken(token: string, accountNumber: number, apiKey: string
     steamId = extractSteamIdFromToken(token) || ""
   }
 
-  // Determine status
+  const userProfile = await getUserProfile(steamId, apiKey)
+  const banInfo = await getBanInfo(steamId, apiKey)
+
   let status = "Valid"
   if (jwtValidation) {
     if (jwtValidation.is_expired) {
       status = "Expired"
     } else if (!jwtValidation.is_valid) {
       status = "Invalid JWT"
+    } else {
+      // JWT is valid, but check if Steam account actually exists
+      const hasValidProfile = userProfile.time_created > 0 || userProfile.username !== "Unknown"
+      const profileNotFound = userProfile.username === "Unknown" && userProfile.time_created === 0
+
+      if (profileNotFound) {
+        status = "Account Not Found"
+      } else if (!hasValidProfile) {
+        status = "Limited Profile"
+      }
+      // If profile exists and JWT is valid and not expired, keep "Valid"
     }
   } else if (!steamId) {
     status = "Invalid"
+  } else {
+    // No JWT but we have Steam ID, check if account exists
+    const hasValidProfile = userProfile.time_created > 0 || userProfile.username !== "Unknown"
+    if (!hasValidProfile) {
+      status = "Account Not Found"
+    }
   }
-
-  const userProfile = await getUserProfile(steamId, apiKey)
-  const banInfo = await getBanInfo(steamId, apiKey)
 
   const expires = jwtValidation?.expires_at ? formatTimestamp(jwtValidation.expires_at) : "Unknown"
 

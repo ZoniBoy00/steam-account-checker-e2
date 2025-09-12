@@ -1,6 +1,14 @@
 export interface SteamAccount {
   accountNumber: number
-  status: "Valid" | "Invalid" | "Expired" | "Error" | "Invalid JWT" | "Session Invalid"
+  status:
+    | "Valid"
+    | "Invalid"
+    | "Expired"
+    | "Error"
+    | "Invalid JWT"
+    | "Session Invalid"
+    | "Account Not Found"
+    | "Limited Profile"
   steamId: string
   username: string
   realName: string
@@ -28,6 +36,8 @@ export interface CheckStats {
   vac_banned: number
   community_banned: number
   economy_banned: number
+  account_not_found: number
+  limited_profile: number
 }
 
 export interface TokenInfo {
