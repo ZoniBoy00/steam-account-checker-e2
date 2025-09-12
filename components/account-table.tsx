@@ -312,6 +312,11 @@ export function AccountTable({ accounts }: AccountTableProps) {
                         <span className="text-slate-400 text-xs">Economy:</span>
                         {getEconomyBadge(account.economyBanned)}
                       </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 text-xs">Game:</span>
+                        {getBanBadge(account.gameBans > 0)}
+                        {account.gameBans > 0 && <span className="text-xs text-slate-400">({account.gameBans})</span>}
+                      </div>
                     </div>
                   </div>
 
@@ -470,6 +475,13 @@ export function AccountTable({ accounts }: AccountTableProps) {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400 w-12">Econ:</span>
                       {getEconomyBadge(account.economyBanned)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 w-12">Game:</span>
+                      <div className="flex items-center gap-1">
+                        {getBanBadge(account.gameBans > 0)}
+                        {account.gameBans > 0 && <span className="text-xs text-slate-400">({account.gameBans})</span>}
+                      </div>
                     </div>
                   </div>
                 </td>
