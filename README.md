@@ -8,7 +8,7 @@
 
 ## 🚀 Overview
 
-Steam Account Checker is a comprehensive web application that allows you to validate Steam accounts in bulk using Steam tokens or Steam Web API keys. The application features enterprise-grade security, real-time validation, and an intuitive user interface.
+Steam Account Checker is a comprehensive web application that allows you to validate Steam accounts in bulk using Steam tokens or Steam Web API keys. The application features enterprise-grade security, real-time validation, and an intuitive user interface optimized for both desktop and mobile devices.
 
 ## ✨ Features
 
@@ -18,6 +18,8 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 - **Real-time Processing**: Live progress tracking with detailed status updates
 - **Comprehensive Results**: Account status, ban information, and profile details
 - **Export Capabilities**: Download results in multiple formats
+- **File Import**: Support for text files with username----token format
+- **Mobile Optimized**: Fully responsive design for all devices
 
 ### Security Features
 - **XSS Protection**: Comprehensive input sanitization and validation
@@ -29,6 +31,9 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 
 ### User Experience
 - **Responsive Design**: Mobile-first design with Tailwind CSS
+- **Mobile-Friendly Interface**: Optimized layouts for phones and tablets
+- **Card-Based Mobile Layout**: Account results displayed in easy-to-read cards on mobile
+- **Touch-Optimized Controls**: Buttons and inputs designed for touch interfaces
 - **Dark/Light Mode**: Theme switching with system preference detection
 - **Help System**: Comprehensive help modal with usage instructions
 - **Progress Tracking**: Real-time validation progress with detailed feedback
@@ -53,31 +58,31 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 ### Local Development
 
 1. **Clone the repository**
-   \`\`\`bash
+   ```bash
    git clone https://github.com/ZoniBoy00/steam-account-checker-e2.git
    cd steam-account-checker-e2
-   \`\`\`
+   ```
 
 2. **Install dependencies**
-   \`\`\`bash
+   ```bash
    npm install
    # or
    yarn install
-   \`\`\`
+   ```
 
 3. **Environment Setup** (Optional)
-   \`\`\`bash
+   ```bash
    cp .env.example .env.local
    # Add your Steam Web API key if available
    STEAM_API_KEY=your_steam_api_key_here
-   \`\`\`
+   ```
 
 4. **Run the development server**
-   \`\`\`bash
+   ```bash
    npm run dev
    # or
    yarn dev
-   \`\`\`
+   ```
 
 5. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
@@ -91,28 +96,64 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 4. Find and copy the `steamLoginSecure` cookie value
 
 ### Using the Application
-1. **Input Method**: Choose between Steam tokens or Steam Web API key
-2. **Add Accounts**: Paste tokens or upload a file with account data
-3. **Configure Settings**: Set delays, timeouts, and other preferences
-4. **Start Validation**: Click "Start Checking" to begin the process
-5. **Monitor Progress**: Watch real-time progress and results
-6. **Export Results**: Download validated account data
 
-### File Upload Format
-The application accepts text files with one Steam token per line:
-\`\`\`
-76561198000000001||token1_here
-76561198000000002||token2_here
-76561198000000003||token3_here
-\`\`\`
+#### Manual Token Entry
+1. **Input Method**: Choose between Steam tokens or Steam Web API key
+2. **Add Accounts**: Paste tokens in the textarea (one per line or separated by commas)
+3. **Multi-line Support**: Use Enter key to create new lines in the input field
+4. **Configure Settings**: Set delays, timeouts, and other preferences
+5. **Start Validation**: Click "Start Checking" to begin the process
+
+#### File Upload
+1. **Prepare File**: Create a text file with tokens in supported formats
+2. **Upload File**: Click "Import from File" and select your .txt file
+3. **Supported Formats**:
+   - `username----token` (preserves username for identification)
+   - `token` (plain token format)
+4. **Automatic Processing**: Tokens are automatically parsed and added to the input
+
+#### Results & Export
+1. **Monitor Progress**: Watch real-time progress and results
+2. **View Results**: See detailed account information in responsive cards/table
+3. **Mobile View**: Results automatically adapt to mobile screens with card layout
+4. **Export Results**: Download validated account data
+
+### File Upload Formats
+The application accepts text files with the following formats:
+
+**Username + Token Format (Recommended):**
+```
+curtain2181----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+player123----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+gamer456----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+```
+
+**Plain Token Format:**
+```
+eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+```
+
+## 📱 Mobile Support
+
+The application is fully optimized for mobile devices:
+
+- **Responsive Layout**: Adapts to all screen sizes from phones to desktops
+- **Touch-Friendly**: Large buttons and touch targets for easy interaction
+- **Mobile Navigation**: Simplified navigation optimized for mobile use
+- **Card Layout**: Account results displayed in easy-to-read cards on mobile
+- **Optimized Typography**: Text sizes and spacing optimized for mobile reading
+- **Fast Loading**: Optimized for mobile network conditions
 
 ## 🔒 Security Features
 
 ### Input Validation
 - Comprehensive XSS prevention
 - Steam token format validation
-- File type and size restrictions
+- File type and size restrictions (.txt, .csv, .log files up to 10MB)
 - Malicious content detection
+- Username preservation with secure parsing
 
 ### API Security
 - Rate limiting (100 requests per 15 minutes)
@@ -126,6 +167,7 @@ The application accepts text files with one Steam token per line:
 - No sensitive data logged
 - Secure cookie handling
 - Content Security Policy (CSP)
+- Secure file upload processing
 
 ## 🚀 Deployment
 
@@ -140,6 +182,30 @@ The application accepts text files with one Steam token per line:
 2. Start the production server: `npm start`
 3. Configure reverse proxy (nginx/Apache)
 4. Set up SSL certificate
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**File Upload Not Working:**
+- Ensure file is in .txt, .csv, or .log format
+- Check file size is under 10MB
+- Verify file contains valid token format
+
+**Tokens Not Parsing:**
+- Check token format matches expected patterns
+- Ensure no extra spaces or characters
+- Try both username----token and plain token formats
+
+**Mobile Display Issues:**
+- Clear browser cache and reload
+- Ensure JavaScript is enabled
+- Try different mobile browsers
+
+**Rate Limiting:**
+- Wait 15 minutes before retrying
+- Reduce batch size for large token lists
+- Check network connection stability
 
 ## 🤝 Contributing
 
