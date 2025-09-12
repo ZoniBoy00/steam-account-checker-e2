@@ -57,6 +57,12 @@ function sanitizeInput(input: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  const contentLength = request.headers.get("content-length")
+  if (contentLength && Number.parseInt(contentLength) > 1024) {
+    // 1KB limit
+    return NextResponse.json({ error: "Request too large" }, { status: 413 })
+  }
+
   const forwarded = request.headers.get("x-forwarded-for")
   const ip = forwarded ? forwarded.split(",")[0].trim() : request.ip || "unknown"
 
@@ -95,20 +101,26 @@ export async function GET(request: NextRequest) {
 
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 8000) // Reduced timeout for better UX
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, 5000) // Reduced to 5 seconds to prevent DoS
 
     const apiUrl = new URL("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/")
     apiUrl.searchParams.set("key", sanitizedApiKey)
     apiUrl.searchParams.set("steamids", sanitizedSteamId)
 
-    const response = await fetch(apiUrl.toString(), {
-      headers: {
-        "User-Agent": "Steam Account Checker/2.0",
-        Accept: "application/json",
-        "Cache-Control": "no-cache",
-      },
-      signal: controller.signal,
-    })
+    const response = await Promise.race([
+      fetch(apiUrl.toString(), {
+        headers: {
+          "User-Agent": "Steam Account Checker/2.0",
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+          Connection: "close", // Prevent connection reuse attacks
+        },
+        signal: controller.signal,
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 3000)),
+    ])
 
     clearTimeout(timeoutId)
 
@@ -165,8 +177,13 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error fetching Steam profile:", error)
 
-    if (error instanceof Error && error.name === "AbortError") {
-      return NextResponse.json({ error: "Request timeout. Please try again." }, { status: 408 })
+    if (error instanceof Error) {
+      if (error.name === "AbortError" || error.message === "Connection timeout") {
+        return NextResponse.json({ error: "Request timeout. Please try again." }, { status: 408 })
+      }
+      if (error.message.includes("fetch")) {
+        return NextResponse.json({ error: "Network error. Please check your connection." }, { status: 503 })
+      }
     }
 
     return NextResponse.json({ error: "Failed to fetch Steam profile" }, { status: 500 })
