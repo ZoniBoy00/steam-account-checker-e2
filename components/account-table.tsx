@@ -84,6 +84,12 @@ export function AccountTable({ accounts }: AccountTableProps) {
               Invalid
             </Badge>
           )
+        case "invalid jwt":
+          return (
+            <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 hover:bg-orange-500/30">
+              Invalid JWT
+            </Badge>
+          )
         case "expired":
           return (
             <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30">
@@ -211,6 +217,7 @@ export function AccountTable({ accounts }: AccountTableProps) {
               <SelectItem value="invalid">Invalid</SelectItem>
               <SelectItem value="expired">Expired</SelectItem>
               <SelectItem value="error">Error</SelectItem>
+              <SelectItem value="invalid jwt">Invalid JWT</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -222,79 +229,105 @@ export function AccountTable({ accounts }: AccountTableProps) {
       <div className="block lg:hidden">
         <div className="space-y-3">
           {filteredAndSortedAccounts.map((account, index) => (
-            <Card key={`${account.accountNumber}-${index}`} className="bg-slate-800/30 border-slate-700">
+            <Card
+              key={`${account.accountNumber}-${index}`}
+              className="bg-slate-800/50 border-slate-600 hover:bg-slate-800/70 transition-colors"
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-blue-400 font-semibold text-sm">#{account.accountNumber}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-blue-400 font-semibold text-lg">#{account.accountNumber}</span>
                     {getStatusBadge(account.status)}
                   </div>
-                  {account.profileUrl && (
+                  {getSteamProfileUrl(account.steamId) && (
                     <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0 hover:bg-slate-600">
-                      <a href={account.profileUrl} target="_blank" rel="noopener noreferrer" title="Open Steam Profile">
+                      <a
+                        href={getSteamProfileUrl(account.steamId)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open Steam Profile"
+                      >
                         <ExternalLink className="h-4 w-4 text-blue-400" />
                       </a>
                     </Button>
                   )}
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-slate-400">Username: </span>
-                    <span className="text-slate-200 font-medium">{account.username}</span>
-                  </div>
+                <div className="space-y-3 text-sm">
+                  <div className="bg-slate-700/30 rounded-lg p-3">
+                    <div className="grid grid-cols-1 gap-2">
+                      <div>
+                        <span className="text-slate-400 text-xs uppercase tracking-wide">Username</span>
+                        <div className="text-slate-200 font-medium mt-1">{account.username}</div>
+                      </div>
 
-                  <div>
-                    <span className="text-slate-400">Steam ID: </span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-mono text-xs text-slate-300 break-all">
-                        {formatSteamId(account.steamId)}
-                      </span>
-                      {account.steamId !== "Unknown" &&
-                        account.steamId !== "Error" &&
-                        account.steamId.length === 17 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(account.steamId, `steam-mobile-${account.accountNumber}`)}
-                            className="h-6 w-6 p-0 hover:bg-slate-600 flex-shrink-0"
-                            title="Copy full Steam ID"
-                          >
-                            {copiedId === `steam-mobile-${account.accountNumber}` ? (
-                              <CheckCircle2 className="h-3 w-3 text-green-400" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-slate-400" />
+                      <div>
+                        <span className="text-slate-400 text-xs uppercase tracking-wide">Steam ID</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="font-mono text-xs text-slate-300 break-all">
+                            {formatSteamId(account.steamId)}
+                          </span>
+                          {account.steamId !== "Unknown" &&
+                            account.steamId !== "Error" &&
+                            account.steamId.length === 17 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  copyToClipboard(account.steamId, `steam-mobile-${account.accountNumber}`)
+                                }
+                                className="h-6 w-6 p-0 hover:bg-slate-600 flex-shrink-0"
+                                title="Copy full Steam ID"
+                              >
+                                {copiedId === `steam-mobile-${account.accountNumber}` ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-400" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-slate-400" />
+                                )}
+                              </Button>
                             )}
-                          </Button>
-                        )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 text-xs uppercase tracking-wide">Real Name</span>
+                        <div className="mt-1">{getRealNameDisplay(account.realName)}</div>
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <span className="text-slate-400">Real Name: </span>
-                    {getRealNameDisplay(account.realName)}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-slate-400 text-xs">VAC:</span>
-                      {getBanBadge(account.vacBanned)}
-                      {account.vacCount > 0 && <span className="text-xs text-slate-400">({account.vacCount})</span>}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-slate-400 text-xs">Community:</span>
-                      {getBanBadge(account.communityBanned)}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-slate-400 text-xs">Economy:</span>
-                      {getEconomyBadge(account.economyBanned)}
+                  <div className="bg-slate-700/30 rounded-lg p-3">
+                    <div className="text-slate-400 text-xs uppercase tracking-wide mb-2">Ban Status</div>
+                    <div className="flex flex-wrap gap-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 text-xs">VAC:</span>
+                        {getBanBadge(account.vacBanned)}
+                        {account.vacCount > 0 && <span className="text-xs text-slate-400">({account.vacCount})</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 text-xs">Community:</span>
+                        {getBanBadge(account.communityBanned)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 text-xs">Economy:</span>
+                        {getEconomyBadge(account.economyBanned)}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-500 pt-2 space-y-1">
-                    <div>Created: {account.accountCreated}</div>
-                    <div>Last Online: {account.lastOnline}</div>
-                    <div>JWT Expires: {account.expires}</div>
+                  <div className="bg-slate-700/30 rounded-lg p-3">
+                    <div className="text-slate-400 text-xs uppercase tracking-wide mb-2">Account Info</div>
+                    <div className="text-xs text-slate-300 space-y-1">
+                      <div>
+                        <span className="text-slate-400">Created:</span> {account.accountCreated}
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Last Online:</span> {account.lastOnline}
+                      </div>
+                      <div>
+                        <span className="text-slate-400">JWT Expires:</span> {account.expires}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -303,71 +336,99 @@ export function AccountTable({ accounts }: AccountTableProps) {
         </div>
       </div>
 
-      <div className="hidden lg:block overflow-x-auto rounded-lg border border-slate-700 bg-slate-800/30">
+      <div className="hidden lg:block overflow-x-auto rounded-lg border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/60 backdrop-blur-sm shadow-2xl">
         <table className="w-full border-collapse min-w-[1400px]">
           <thead>
-            <tr className="border-b border-slate-700 bg-slate-800/50">
-              <th className="text-left p-3 font-semibold text-slate-200 w-16">
+            <tr className="border-b border-slate-600/50 bg-gradient-to-r from-slate-800/80 to-slate-700/60">
+              <th className="text-left p-4 font-semibold text-slate-200 w-16">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleSort("accountNumber")}
-                  className="h-auto p-0 font-semibold text-slate-200 hover:text-blue-400"
+                  className="h-auto p-1 font-semibold text-slate-200 hover:text-blue-400 hover:bg-slate-600/50 rounded-md transition-all"
                 >
                   # <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-24">
+              <th className="text-left p-4 font-semibold text-slate-200 w-28">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleSort("status")}
-                  className="h-auto p-0 font-semibold text-slate-200 hover:text-blue-400"
+                  className="h-auto p-1 font-semibold text-slate-200 hover:text-blue-400 hover:bg-slate-600/50 rounded-md transition-all"
                 >
                   Status <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-48">Steam ID</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-36">
+              <th className="text-left p-4 font-semibold text-slate-200 w-48">Steam ID</th>
+              <th className="text-left p-4 font-semibold text-slate-200 w-36">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleSort("username")}
-                  className="h-auto p-0 font-semibold text-slate-200 hover:text-blue-400"
+                  className="h-auto p-1 font-semibold text-slate-200 hover:text-blue-400 hover:bg-slate-600/50 rounded-md transition-all"
                 >
                   Username <ArrowUpDown className="ml-1 h-3 w-3" />
                 </Button>
               </th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-40">Real Name</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-20">VAC</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-28">Community</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-24">Economy</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-32">Created</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-32">Last Online</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-32">JWT Expires</th>
-              <th className="text-left p-3 font-semibold text-slate-200 w-20">Profile</th>
+              <th className="text-left p-4 font-semibold text-slate-200 w-40">Real Name</th>
+              <th className="text-left p-4 font-semibold text-slate-200 w-24">Ban Status</th>
+              <th className="text-left p-4 font-semibold text-slate-200 w-32">Account Info</th>
+              <th className="text-left p-4 font-semibold text-slate-200 w-20">Profile</th>
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedAccounts.map((account, index) => (
               <tr
                 key={`${account.accountNumber}-${index}`}
-                className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
+                className="border-b border-slate-700/30 hover:bg-gradient-to-r hover:from-slate-700/40 hover:to-slate-600/30 transition-all duration-200 group"
               >
-                <td className="p-3 font-mono text-blue-400 font-semibold">{account.accountNumber}</td>
-                <td className="p-3">{getStatusBadge(account.status)}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
+                <td className="p-4">
+                  <div className="flex items-center">
+                    <span className="font-mono text-blue-400 font-bold text-lg bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">
+                      #{account.accountNumber}
+                    </span>
+                  </div>
+                </td>
+
+                <td className="p-4">
+                  <div className="flex items-center">{getStatusBadge(account.status)}</div>
+                </td>
+
+                <td className="p-4">
+                  <div className="flex items-center gap-3">
                     <div className="flex flex-col gap-1 min-w-0 flex-1">
-                      <span className="font-mono text-sm text-slate-300 cursor-help break-all" title={account.steamId}>
-                        {account.steamId}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="font-mono text-sm text-slate-300 bg-slate-700/30 px-2 py-1 rounded border border-slate-600/50"
+                          title={account.steamId}
+                        >
+                          {formatSteamId(account.steamId)}
+                        </span>
+                        {account.steamId !== "Unknown" &&
+                          account.steamId !== "Error" &&
+                          account.steamId.length === 17 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(account.steamId, `steam-${account.accountNumber}`)}
+                              className="h-7 w-7 p-0 hover:bg-slate-600/50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Copy full Steam ID"
+                            >
+                              {copiedId === `steam-${account.accountNumber}` ? (
+                                <CheckCircle2 className="h-3 w-3 text-green-400" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-slate-400" />
+                              )}
+                            </Button>
+                          )}
+                      </div>
                       {getSteamProfileUrl(account.steamId) && (
                         <a
                           href={getSteamProfileUrl(account.steamId)!}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 w-fit"
+                          className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 w-fit opacity-0 group-hover:opacity-100 transition-opacity"
                           title={getSteamProfileUrl(account.steamId)!}
                         >
                           <ExternalLink className="h-3 w-3" />
@@ -375,62 +436,85 @@ export function AccountTable({ accounts }: AccountTableProps) {
                         </a>
                       )}
                     </div>
-                    {account.steamId !== "Unknown" && account.steamId !== "Error" && account.steamId.length === 17 && (
+                  </div>
+                </td>
+
+                <td className="p-4">
+                  <div className="flex items-center">
+                    <span
+                      className="font-semibold text-slate-200 bg-slate-700/20 px-3 py-1.5 rounded-md border border-slate-600/30"
+                      title={account.username}
+                    >
+                      {account.username}
+                    </span>
+                  </div>
+                </td>
+
+                <td className="p-4">
+                  <div className="flex items-center">{getRealNameDisplay(account.realName)}</div>
+                </td>
+
+                <td className="p-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 w-12">VAC:</span>
+                      <div className="flex items-center gap-1">
+                        {getBanBadge(account.vacBanned)}
+                        {account.vacCount > 0 && <span className="text-xs text-slate-400">({account.vacCount})</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 w-12">Comm:</span>
+                      {getBanBadge(account.communityBanned)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 w-12">Econ:</span>
+                      {getEconomyBadge(account.economyBanned)}
+                    </div>
+                  </div>
+                </td>
+
+                <td className="p-4">
+                  <div className="space-y-2 text-xs">
+                    <div className="bg-slate-700/20 rounded px-2 py-1 border border-slate-600/30">
+                      <div className="text-slate-400 mb-1">Created:</div>
+                      <div className="text-slate-300 font-medium">{account.accountCreated}</div>
+                    </div>
+                    <div className="bg-slate-700/20 rounded px-2 py-1 border border-slate-600/30">
+                      <div className="text-slate-400 mb-1">Last Online:</div>
+                      <div className="text-slate-300 font-medium">{account.lastOnline}</div>
+                    </div>
+                    <div className="bg-slate-700/20 rounded px-2 py-1 border border-slate-600/30">
+                      <div className="text-slate-400 mb-1">JWT Expires:</div>
+                      <div className="text-slate-300 font-medium">{account.expires}</div>
+                    </div>
+                  </div>
+                </td>
+
+                <td className="p-4">
+                  <div className="flex items-center justify-center">
+                    {account.profileUrl ? (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => copyToClipboard(account.steamId, `steam-${account.accountNumber}`)}
-                        className="h-6 w-6 p-0 hover:bg-slate-600 flex-shrink-0"
-                        title="Copy full Steam ID"
+                        asChild
+                        className="h-9 w-9 p-0 hover:bg-blue-500/20 hover:border-blue-500/30 border border-transparent transition-all rounded-lg"
                       >
-                        {copiedId === `steam-${account.accountNumber}` ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-400" />
-                        ) : (
-                          <Copy className="h-3 w-3 text-slate-400" />
-                        )}
+                        <a
+                          href={account.profileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open Steam Profile"
+                        >
+                          <ExternalLink className="h-4 w-4 text-blue-400" />
+                        </a>
                       </Button>
+                    ) : (
+                      <span className="text-slate-500 text-sm bg-slate-700/20 px-2 py-1 rounded border border-slate-600/30">
+                        N/A
+                      </span>
                     )}
                   </div>
-                </td>
-                <td className="p-3">
-                  <span className="font-medium text-slate-200 break-all" title={account.username}>
-                    {account.username}
-                  </span>
-                </td>
-                <td className="p-3">{getRealNameDisplay(account.realName)}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    {getBanBadge(account.vacBanned)}
-                    {account.vacCount > 0 && <span className="text-xs text-slate-400">({account.vacCount})</span>}
-                  </div>
-                </td>
-                <td className="p-3">{getBanBadge(account.communityBanned)}</td>
-                <td className="p-3">{getEconomyBadge(account.economyBanned)}</td>
-                <td className="p-3">
-                  <span className="text-sm text-slate-400 break-all" title={account.accountCreated}>
-                    {account.accountCreated}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <span className="text-sm text-slate-400 break-all" title={account.lastOnline}>
-                    {account.lastOnline}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <span className="text-sm text-slate-400 break-all" title={account.expires}>
-                    {account.expires}
-                  </span>
-                </td>
-                <td className="p-3">
-                  {account.profileUrl ? (
-                    <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0 hover:bg-slate-600">
-                      <a href={account.profileUrl} target="_blank" rel="noopener noreferrer" title="Open Steam Profile">
-                        <ExternalLink className="h-4 w-4 text-blue-400" />
-                      </a>
-                    </Button>
-                  ) : (
-                    <span className="text-slate-500 text-sm">N/A</span>
-                  )}
                 </td>
               </tr>
             ))}

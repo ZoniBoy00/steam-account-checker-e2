@@ -289,13 +289,17 @@ export default function SteamCheckerPage() {
         .split("\n")
         .map((token) => {
           const sanitized = SecurityUtils.sanitizeInput(token.trim())
-          if (sanitized.includes("----")) {
-            const parts = sanitized.split("----")
-            return parts.length >= 2 ? parts[1].trim() : sanitized
-          }
+          console.log("[v0] Processing input token:", sanitized.substring(0, 50) + "...")
+
           return sanitized
         })
-        .filter((token) => token.length > 0 && SecurityUtils.validateSteamToken(token))
+        .filter((token) => {
+          const isValid = token.length > 0 && SecurityUtils.validateSteamToken(token)
+          console.log("[v0] Token validation result:", isValid, "for token:", token.substring(0, 30) + "...")
+          return isValid
+        })
+
+      console.log("[v0] Total valid tokens to process:", tokenList.length)
 
       if (tokenList.length === 0) {
         setError("No valid tokens found. Please check your token format.")
@@ -312,6 +316,7 @@ export default function SteamCheckerPage() {
       setSuccess(`Successfully checked ${results.accounts.length} accounts!`)
       setTimeout(() => setSuccess(""), 5000)
     } catch (err) {
+      console.log("[v0] Error during account checking:", err)
       setError(err instanceof Error ? err.message : "An error occurred while checking accounts")
     } finally {
       setIsChecking(false)
@@ -419,18 +424,18 @@ export default function SteamCheckerPage() {
               variant="secondary"
               className="bg-green-600/30 text-green-200 border-green-500/50 text-xs sm:text-sm"
             >
-              <CheckCircle className="h-3 w-3 mr-1" />
+              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-400" />
               Secure
             </Badge>
             <Badge variant="secondary" className="bg-blue-600/30 text-blue-200 border-blue-500/50 text-xs sm:text-sm">
-              <Shield className="h-3 w-3 mr-1" />
+              <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
               Professional
             </Badge>
             <Badge
               variant="secondary"
               className="bg-purple-600/30 text-purple-200 border-purple-500/50 text-xs sm:text-sm"
             >
-              <Users className="h-3 w-3 mr-1" />
+              <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               Bulk Processing
             </Badge>
           </div>
@@ -654,7 +659,6 @@ export default function SteamCheckerPage() {
               <Users className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Results ({accounts.length})</span>
               <span className="sm:hidden">Results</span>
-              <span className="sm:hidden text-xs">({accounts.length})</span>
             </TabsTrigger>
             <TabsTrigger
               value="settings"

@@ -21,22 +21,45 @@ export class SecurityUtils {
     return apiKeyRegex.test(apiKey.trim())
   }
 
-  // Validate Steam token format
   static validateSteamToken(token: string): boolean {
-    if (!token || typeof token !== "string") return false
+    if (!token || typeof token !== "string") {
+      console.log("[v0] Token validation failed: empty or invalid token")
+      return false
+    }
 
     const sanitizedToken = this.sanitizeInput(token)
+    console.log("[v0] Validating token:", sanitizedToken.substring(0, 50) + "...")
 
-    // Check for JWT format
-    const jwtRegex = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
+    // Extract JWT part if it's in username----JWT format
+    let jwtPart = sanitizedToken
+    if (sanitizedToken.includes("----")) {
+      const parts = sanitizedToken.split("----")
+      if (parts.length >= 2) {
+        jwtPart = parts[1].trim()
+        console.log("[v0] Extracted JWT from username----token format")
+      }
+    }
 
-    // Check for username----JWT format
-    const usernameJwtRegex = /^[a-zA-Z0-9_-]+----eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
+    // More flexible JWT format validation
+    const jwtParts = jwtPart.split(".")
+    if (jwtParts.length === 3) {
+      // Check if it looks like a JWT (starts with eyJ which is base64 for {"typ":"JWT" or similar)
+      const headerPart = jwtParts[0]
+      if (headerPart.startsWith("eyJ") || headerPart.startsWith("eyA")) {
+        console.log("[v0] Token appears to be valid JWT format")
+        return true
+      }
+    }
 
     // Check for cookie format
     const cookieRegex = /^steamLoginSecure=[0-9%]+\|\|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
+    if (cookieRegex.test(sanitizedToken)) {
+      console.log("[v0] Token appears to be valid cookie format")
+      return true
+    }
 
-    return jwtRegex.test(sanitizedToken) || usernameJwtRegex.test(sanitizedToken) || cookieRegex.test(sanitizedToken)
+    console.log("[v0] Token validation failed: no valid format found")
+    return false
   }
 
   static validateFileContent(content: string, maxSize: number = 1024 * 1024): { valid: boolean; error?: string } {
