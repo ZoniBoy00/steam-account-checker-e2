@@ -583,6 +583,7 @@ async function getBanInfo(steamId: string, apiKey: string): Promise<BanInfo> {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      console.log(`[v0] Fetching ban info for Steam ID: ${steamId}`)
       const response = await fetch(`/api/steam/bans?steamId=${steamId}&apiKey=${encodeURIComponent(apiKey)}`)
 
       if (response.status === 429) {
@@ -598,6 +599,14 @@ async function getBanInfo(steamId: string, apiKey: string): Promise<BanInfo> {
       }
 
       const data = await response.json()
+      console.log(`[v0] Ban info received for ${steamId}:`, {
+        VACBanned: data.VACBanned,
+        CommunityBanned: data.CommunityBanned,
+        EconomyBan: data.EconomyBan,
+        NumberOfVACBans: data.NumberOfVACBans,
+        NumberOfGameBans: data.NumberOfGameBans,
+        DaysSinceLastBan: data.DaysSinceLastBan,
+      })
 
       if (data.error) {
         throw new Error(data.error)

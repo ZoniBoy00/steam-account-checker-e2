@@ -377,10 +377,16 @@ export default function SteamCheckerPage() {
   }, [accounts])
 
   const exportValidTokens = useCallback(() => {
-    const validAccounts = accounts.filter((account) => account.status.toLowerCase() === "valid")
+    const validAccounts = accounts.filter(
+      (account) =>
+        account.status.toLowerCase() === "valid" &&
+        !account.vacBanned &&
+        !account.communityBanned &&
+        account.gameBans === 0,
+    )
 
     if (validAccounts.length === 0) {
-      setError("No valid tokens to export")
+      setError("No valid tokens without gameplay-affecting bans to export")
       setTimeout(() => setError(""), 3000)
       return
     }
@@ -394,13 +400,13 @@ export default function SteamCheckerPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `valid_steam_tokens_${new Date().toISOString().split("T")[0]}.txt`
+    a.download = `clean_steam_tokens_${new Date().toISOString().split("T")[0]}.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    setSuccess(`Exported ${validAccounts.length} valid tokens to file`)
+    setSuccess(`Exported ${validAccounts.length} clean tokens (no gameplay bans) to file`)
     setTimeout(() => setSuccess(""), 3000)
   }, [accounts])
 
