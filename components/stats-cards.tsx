@@ -76,21 +76,21 @@ export function StatsCards({ stats }: StatsCardsProps) {
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 sm:gap-4">
       {cards.map((card, index) => (
         <Card
           key={index}
           className={`hover:shadow-lg transition-all duration-200 hover:scale-105 bg-slate-800/50 border-slate-700 ${card.bgColor} ${card.borderColor}`}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-300">{card.title}</CardTitle>
-            <div className={`p-2 rounded-lg ${card.bgColor}`}>
-              <card.icon className={`h-4 w-4 ${card.color}`} />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4">
+            <CardTitle className="text-xs sm:text-sm font-medium text-slate-300 leading-tight">{card.title}</CardTitle>
+            <div className={`p-1.5 sm:p-2 rounded-lg ${card.bgColor}`}>
+              <card.icon className={`h-3 w-3 sm:h-4 sm:w-4 ${card.color}`} />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <div className="space-y-1">
-              <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
+              <div className={`text-lg sm:text-2xl font-bold ${card.color}`}>{card.value}</div>
               <div className="text-xs text-slate-400">{card.percentage}% of total</div>
             </div>
           </CardContent>

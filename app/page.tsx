@@ -401,50 +401,64 @@ export default function SteamCheckerPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-3 bg-blue-600/20 rounded-xl border border-blue-500/30">
-              <Shield className="h-8 w-8 text-blue-400" />
+            <div className="p-2 sm:p-3 bg-blue-600/20 rounded-xl border border-blue-500/30">
+              <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-blue-400" />
             </div>
-            <h1 className="text-4xl font-bold text-balance text-white">Steam Account Checker</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-balance text-white">
+              Steam Account Checker
+            </h1>
           </div>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+          <p className="text-slate-400 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
             Professional Steam session token validation with comprehensive account analysis and ban detection
           </p>
-          <div className="flex items-center justify-center gap-4 mt-4">
-            <Badge variant="secondary" className="bg-green-600/30 text-green-200 border-green-500/50">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mt-4">
+            <Badge
+              variant="secondary"
+              className="bg-green-600/30 text-green-200 border-green-500/50 text-xs sm:text-sm"
+            >
               <CheckCircle className="h-3 w-3 mr-1" />
               Secure
             </Badge>
-            <Badge variant="secondary" className="bg-blue-600/30 text-blue-200 border-blue-500/50">
+            <Badge variant="secondary" className="bg-blue-600/30 text-blue-200 border-blue-500/50 text-xs sm:text-sm">
               <Shield className="h-3 w-3 mr-1" />
               Professional
             </Badge>
-            <Badge variant="secondary" className="bg-purple-600/30 text-purple-200 border-purple-500/50">
+            <Badge
+              variant="secondary"
+              className="bg-purple-600/30 text-purple-200 border-purple-500/50 text-xs sm:text-sm"
+            >
               <Users className="h-3 w-3 mr-1" />
               Bulk Processing
             </Badge>
           </div>
 
-          <div className="flex items-center justify-center gap-4 mt-6">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mt-4 sm:mt-6">
             <HelpModal />
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200" asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-slate-400 hover:text-slate-200 text-xs sm:text-sm"
+              asChild
+            >
               <a
                 href="https://github.com/ZoniBoy00"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center"
               >
-                <Github className="h-4 w-4 mr-2" />
+                <Github className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 GitHub
               </a>
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200">
-                  <Scale className="h-4 w-4 mr-2" />
-                  Terms of Service
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200 text-xs sm:text-sm">
+                  <Scale className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Terms of Service</span>
+                  <span className="sm:hidden">Terms</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[80vh] bg-slate-800 border-slate-700">
@@ -521,9 +535,10 @@ export default function SteamCheckerPage() {
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200">
-                  <Lock className="h-4 w-4 mr-2" />
-                  Privacy Policy
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-200 text-xs sm:text-sm">
+                  <Lock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Privacy Policy</span>
+                  <span className="sm:hidden">Privacy</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[80vh] bg-slate-800 border-slate-700">
@@ -622,32 +637,36 @@ export default function SteamCheckerPage() {
           </Alert>
         )}
 
-        <Tabs defaultValue="checker" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-slate-700">
+        <Tabs defaultValue="checker" className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-slate-700 h-auto">
             <TabsTrigger
               value="checker"
-              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300"
+              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm"
             >
-              <FileText className="h-4 w-4 mr-2" />
-              Token Checker
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Token Checker</span>
+              <span className="sm:hidden">Checker</span>
             </TabsTrigger>
             <TabsTrigger
               value="results"
-              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300"
+              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm"
             >
-              <Users className="h-4 w-4 mr-2" />
-              Results ({accounts.length})
+              <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Results ({accounts.length})</span>
+              <span className="sm:hidden">Results</span>
+              <span className="sm:hidden text-xs">({accounts.length})</span>
             </TabsTrigger>
             <TabsTrigger
               value="settings"
-              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300"
+              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm"
             >
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
+              <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Settings</span>
+              <span className="sm:hidden">Settings</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="checker" className="space-y-6">
+          <TabsContent value="checker" className="space-y-4 sm:space-y-6">
             <TokenInput
               tokens={tokens}
               setTokens={setTokens}
@@ -664,35 +683,44 @@ export default function SteamCheckerPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="results" className="space-y-6">
+          <TabsContent value="results" className="space-y-4 sm:space-y-6">
             {accounts.length > 0 ? (
               <>
                 <StatsCards stats={stats} />
                 <Card>
                   <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <CardTitle>Account Results</CardTitle>
-                        <CardDescription>Detailed information about each checked Steam account</CardDescription>
+                        <CardTitle className="text-lg sm:text-xl">Account Results</CardTitle>
+                        <CardDescription className="text-sm">
+                          Detailed information about each checked Steam account
+                        </CardDescription>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <Button
                           onClick={exportValidTokens}
                           variant="outline"
                           size="sm"
-                          className="bg-green-600/20 border-green-600/50 text-green-400 hover:bg-green-600/30"
+                          className="bg-green-600/20 border-green-600/50 text-green-400 hover:bg-green-600/30 text-xs sm:text-sm"
                         >
-                          <Download className="h-4 w-4 mr-2" />
-                          Export Valid Tokens
+                          <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Export Valid Tokens</span>
+                          <span className="sm:hidden">Valid Tokens</span>
                         </Button>
-                        <Button onClick={exportResults} variant="outline" size="sm">
-                          <Download className="h-4 w-4 mr-2" />
-                          Export CSV
+                        <Button
+                          onClick={exportResults}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs sm:text-sm bg-transparent"
+                        >
+                          <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Export CSV</span>
+                          <span className="sm:hidden">CSV</span>
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-2 sm:p-6">
                     <AccountTable accounts={accounts} />
                   </CardContent>
                 </Card>
@@ -710,7 +738,7 @@ export default function SteamCheckerPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6">
+          <TabsContent value="settings" className="space-y-4 sm:space-y-6">
             <SettingsPanel
               apiKey={apiKey}
               setApiKey={setApiKey}

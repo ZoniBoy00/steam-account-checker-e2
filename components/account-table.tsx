@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ExternalLink, Search, Filter, ArrowUpDown, Copy, CheckCircle2, User } from "lucide-react"
 import type { SteamAccount } from "@/lib/types"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface AccountTableProps {
   accounts: SteamAccount[]
@@ -188,19 +189,19 @@ export function AccountTable({ accounts }: AccountTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Search by username, Steam ID, or real name..."
+              placeholder="Search accounts..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-slate-900/50 border-slate-600 text-slate-200"
+              className="pl-10 bg-slate-900/50 border-slate-600 text-slate-200 text-sm"
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px] bg-slate-900/50 border-slate-600 text-slate-200">
+            <SelectTrigger className="w-full sm:w-[180px] bg-slate-900/50 border-slate-600 text-slate-200">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -213,12 +214,96 @@ export function AccountTable({ accounts }: AccountTableProps) {
             </SelectContent>
           </Select>
         </div>
-        <div className="text-sm text-slate-400">
+        <div className="text-sm text-slate-400 text-center sm:text-left">
           Showing {filteredAndSortedAccounts.length} of {accounts.length} accounts
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-800/30">
+      <div className="block lg:hidden">
+        <div className="space-y-3">
+          {filteredAndSortedAccounts.map((account, index) => (
+            <Card key={`${account.accountNumber}-${index}`} className="bg-slate-800/30 border-slate-700">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-blue-400 font-semibold text-sm">#{account.accountNumber}</span>
+                    {getStatusBadge(account.status)}
+                  </div>
+                  {account.profileUrl && (
+                    <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0 hover:bg-slate-600">
+                      <a href={account.profileUrl} target="_blank" rel="noopener noreferrer" title="Open Steam Profile">
+                        <ExternalLink className="h-4 w-4 text-blue-400" />
+                      </a>
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-slate-400">Username: </span>
+                    <span className="text-slate-200 font-medium">{account.username}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400">Steam ID: </span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-mono text-xs text-slate-300 break-all">
+                        {formatSteamId(account.steamId)}
+                      </span>
+                      {account.steamId !== "Unknown" &&
+                        account.steamId !== "Error" &&
+                        account.steamId.length === 17 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(account.steamId, `steam-mobile-${account.accountNumber}`)}
+                            className="h-6 w-6 p-0 hover:bg-slate-600 flex-shrink-0"
+                            title="Copy full Steam ID"
+                          >
+                            {copiedId === `steam-mobile-${account.accountNumber}` ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-400" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-slate-400" />
+                            )}
+                          </Button>
+                        )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400">Real Name: </span>
+                    {getRealNameDisplay(account.realName)}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-400 text-xs">VAC:</span>
+                      {getBanBadge(account.vacBanned)}
+                      {account.vacCount > 0 && <span className="text-xs text-slate-400">({account.vacCount})</span>}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-400 text-xs">Community:</span>
+                      {getBanBadge(account.communityBanned)}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-400 text-xs">Economy:</span>
+                      {getEconomyBadge(account.economyBanned)}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-slate-500 pt-2 space-y-1">
+                    <div>Created: {account.accountCreated}</div>
+                    <div>Last Online: {account.lastOnline}</div>
+                    <div>JWT Expires: {account.expires}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div className="hidden lg:block overflow-x-auto rounded-lg border border-slate-700 bg-slate-800/30">
         <table className="w-full border-collapse min-w-[1400px]">
           <thead>
             <tr className="border-b border-slate-700 bg-slate-800/50">
@@ -354,7 +439,7 @@ export function AccountTable({ accounts }: AccountTableProps) {
       </div>
 
       {filteredAndSortedAccounts.length === 0 && accounts.length > 0 && (
-        <div className="text-center py-8 text-slate-400">
+        <div className="text-center py-8 text-slate-400 text-sm">
           No accounts match your search criteria. Try adjusting your filters or search terms.
         </div>
       )}
