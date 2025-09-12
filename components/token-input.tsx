@@ -55,45 +55,29 @@ export function TokenInput({
       setValidationError("")
     }
 
-    // Sanitize input to prevent XSS
-    const sanitized = SecurityUtils.sanitizeInput(newValue)
-    setTokens(sanitized)
+    setTokens(newValue)
   }
 
   const handleSecureFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+    console.log("[v0] TokenInput file upload triggered")
 
-    // Reset file input
-    event.target.value = ""
-
-    // Enhanced file validation
-    if (file.size > 10 * 1024 * 1024) {
-      // 10MB limit
-      setValidationError("File too large. Maximum size is 10MB.")
-      return
+    // Clear any existing validation errors
+    if (validationError) {
+      setValidationError("")
     }
 
-    // Validate file type more strictly
-    const allowedTypes = ["text/plain", "text/csv", "application/csv"]
-    const allowedExtensions = [".txt", ".csv"]
-
-    const hasValidType = allowedTypes.includes(file.type)
-    const hasValidExtension = allowedExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
-
-    if (!hasValidType && !hasValidExtension) {
-      setValidationError("Invalid file type. Only .txt and .csv files are allowed.")
-      return
-    }
-
-    // Check for suspicious file names
-    const suspiciousPatterns = [/\.exe$/i, /\.js$/i, /\.html$/i, /\.php$/i, /\.bat$/i, /\.cmd$/i]
-    if (suspiciousPatterns.some((pattern) => pattern.test(file.name))) {
-      setValidationError("Suspicious file type detected. Please use only text files.")
-      return
-    }
-
+    // Pass the event directly to the main handler which has comprehensive validation
     onFileUpload(event)
+  }
+
+  const triggerFileUpload = () => {
+    console.log("[v0] Triggering file upload click")
+    const fileInput = document.getElementById("file-upload") as HTMLInputElement
+    if (fileInput) {
+      fileInput.click()
+    } else {
+      console.log("[v0] File input element not found")
+    }
   }
 
   return (
@@ -120,8 +104,8 @@ export function TokenInput({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => document.getElementById("file-upload")?.click()}
-            className="border-slate-600 hover:bg-slate-700"
+            onClick={triggerFileUpload}
+            className="border-slate-600 hover:bg-slate-700 bg-transparent"
             disabled={isChecking}
           >
             <Upload className="h-4 w-4 mr-2" />
@@ -150,7 +134,7 @@ export function TokenInput({
           <input
             id="file-upload"
             type="file"
-            accept=".txt,.csv,text/plain,text/csv"
+            accept=".txt,.csv,.log,text/plain,text/csv,application/csv"
             onChange={handleSecureFileUpload}
             className="hidden"
             multiple={false}
