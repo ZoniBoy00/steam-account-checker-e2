@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ExternalLink, Search, Filter, ArrowUpDown, Copy, CheckCircle2, User } from "lucide-react"
+import { ExternalLink, Search, Filter, ArrowUpDown, Copy, CheckCircle2, User, Package, DollarSign } from "lucide-react"
 import type { SteamAccount } from "@/lib/types"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -149,6 +149,99 @@ export function AccountTable({ accounts }: AccountTableProps) {
     },
     [],
   )
+
+  const getInventoryDisplay = (inventory: any) => {
+    if (!inventory) {
+      return (
+        <div className="flex items-center gap-2 text-slate-500">
+          <Package className="h-3 w-3" />
+          <span className="text-xs">Not checked</span>
+        </div>
+      )
+    }
+
+    if (inventory.isPrivate === true || inventory.error === "Private inventory") {
+      return (
+        <div className="flex items-center gap-2 text-yellow-400">
+          <Package className="h-3 w-3" />
+          <span className="text-xs">Private</span>
+        </div>
+      )
+    }
+
+    if (inventory.isPrivate === null && inventory.error?.includes("may be private or require authentication")) {
+      return (
+        <div
+          className="flex items-center gap-2 text-orange-400 cursor-help"
+          title="Unable to determine if inventory is private or public - Steam requires authentication to access inventory data"
+        >
+          <Package className="h-3 w-3" />
+          <span className="text-xs">Auth Required</span>
+        </div>
+      )
+    }
+
+    if (inventory.error) {
+      if (
+        inventory.error.includes("temporarily unavailable") ||
+        inventory.error.includes("HTTP 403") ||
+        inventory.error.includes("HTTP 400") ||
+        inventory.error.includes("Steam inventory API is currently blocked") ||
+        inventory.error.includes("API Blocked")
+      ) {
+        return (
+          <div
+            className="flex items-center gap-2 text-orange-400 cursor-help"
+            title="Steam's inventory API is blocking requests without authentication. This is a known limitation - Steam requires login cookies to access inventory data."
+          >
+            <Package className="h-3 w-3" />
+            <span className="text-xs">API Blocked</span>
+          </div>
+        )
+      }
+      return (
+        <div className="flex items-center gap-2 text-red-400" title={inventory.error}>
+          <Package className="h-3 w-3" />
+          <span className="text-xs">Error</span>
+        </div>
+      )
+    }
+
+    // Show inventory data if we have valid item count or value
+    if (inventory.itemCount > 0 || inventory.inventoryValue > 0) {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-green-400">
+            <Package className="h-3 w-3" />
+            <span className="text-xs font-medium">{inventory.itemCount} items</span>
+          </div>
+          {inventory.inventoryValue > 0 && (
+            <div className="flex items-center gap-1 text-orange-400">
+              <DollarSign className="h-3 w-3" />
+              <span className="text-xs font-medium">${inventory.inventoryValue.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // If we have inventory data but no items, show empty inventory
+    if (inventory.itemCount === 0 && inventory.inventoryValue === 0 && !inventory.error) {
+      return (
+        <div className="flex items-center gap-2 text-slate-400">
+          <Package className="h-3 w-3" />
+          <span className="text-xs">Empty</span>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center gap-2 text-slate-500">
+        <Package className="h-3 w-3" />
+        <span className="text-xs">Unknown</span>
+      </div>
+    )
+  }
 
   const getRealNameDisplay = (realName: string) => {
     if (
@@ -320,6 +413,13 @@ export function AccountTable({ accounts }: AccountTableProps) {
                     </div>
                   </div>
 
+                  {account.inventory && (
+                    <div className="bg-slate-700/30 rounded-lg p-3">
+                      <div className="text-slate-400 text-xs uppercase tracking-wide mb-2">CS2 Inventory</div>
+                      {getInventoryDisplay(account.inventory)}
+                    </div>
+                  )}
+
                   <div className="bg-slate-700/30 rounded-lg p-3">
                     <div className="text-slate-400 text-xs uppercase tracking-wide mb-2">Account Info</div>
                     <div className="text-xs text-slate-300 space-y-1">
@@ -342,7 +442,7 @@ export function AccountTable({ accounts }: AccountTableProps) {
       </div>
 
       <div className="hidden lg:block overflow-x-auto rounded-lg border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/60 backdrop-blur-sm shadow-2xl">
-        <table className="w-full border-collapse min-w-[1400px]">
+        <table className="w-full border-collapse min-w-[1600px]">
           <thead>
             <tr className="border-b border-slate-600/50 bg-gradient-to-r from-slate-800/80 to-slate-700/60">
               <th className="text-left p-4 font-semibold text-slate-200 w-16">
@@ -378,6 +478,7 @@ export function AccountTable({ accounts }: AccountTableProps) {
               </th>
               <th className="text-left p-4 font-semibold text-slate-200 w-40">Real Name</th>
               <th className="text-left p-4 font-semibold text-slate-200 w-24">Ban Status</th>
+              <th className="text-left p-4 font-semibold text-slate-200 w-32">CS2 Inventory</th>
               <th className="text-left p-4 font-semibold text-slate-200 w-32">Account Info</th>
               <th className="text-left p-4 font-semibold text-slate-200 w-20">Profile</th>
             </tr>
@@ -483,6 +584,12 @@ export function AccountTable({ accounts }: AccountTableProps) {
                         {account.gameBans > 0 && <span className="text-xs text-slate-400">({account.gameBans})</span>}
                       </div>
                     </div>
+                  </div>
+                </td>
+
+                <td className="p-4">
+                  <div className="bg-slate-700/20 rounded px-2 py-1 border border-slate-600/30">
+                    {getInventoryDisplay(account.inventory)}
                   </div>
                 </td>
 

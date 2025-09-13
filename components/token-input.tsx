@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Upload, Download, Trash2, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { FileText, Upload, Download, Trash2, CheckCircle, Clock, AlertTriangle, Package } from "lucide-react"
 import { SecurityUtils } from "@/lib/security"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useState } from "react"
@@ -19,6 +21,8 @@ interface TokenInputProps {
   onExportTokens: () => void
   onClearTokens: () => void
   canCheck: boolean
+  checkInventory: boolean
+  setCheckInventory: (value: boolean) => void
 }
 
 export function TokenInput({
@@ -30,6 +34,8 @@ export function TokenInput({
   onExportTokens,
   onClearTokens,
   canCheck,
+  checkInventory,
+  setCheckInventory,
 }: TokenInputProps) {
   const [validationError, setValidationError] = useState("")
 
@@ -145,6 +151,17 @@ export function TokenInput({
           />
         </div>
 
+        <div className="flex items-center space-x-3 p-4 bg-slate-900/30 rounded-lg border border-slate-700 opacity-50">
+          <Package className="h-4 w-4 text-slate-400" />
+          <div className="flex-1">
+            <Label htmlFor="inventory-toggle" className="text-sm font-medium text-slate-400">
+              Check CS2 Inventory Value
+            </Label>
+            <p className="text-xs text-slate-500 mt-1">Coming soon - requires Steam authentication integration</p>
+          </div>
+          <Switch id="inventory-toggle" checked={false} onCheckedChange={() => {}} disabled={true} />
+        </div>
+
         <Textarea
           placeholder={`Enter Steam tokens here (one per line). Supported formats:
 
@@ -190,6 +207,12 @@ Paste your tokens below or use the Import File button above.`}
                 Ready to check
               </Badge>
             )}
+            {/* {checkInventory && (
+              <Badge variant="outline" className="border-orange-600 text-orange-400 text-xs">
+                <Package className="h-3 w-3 mr-1" />
+                Inventory enabled
+              </Badge>
+            )} */}
           </div>
           <Button
             onClick={onCheck}

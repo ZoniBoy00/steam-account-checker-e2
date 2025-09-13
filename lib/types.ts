@@ -26,6 +26,7 @@ export interface SteamAccount {
   gameBans: number
   personaState: number
   originalToken?: string
+  inventory?: InventoryInfo
 }
 
 export interface CheckStats {
@@ -95,4 +96,11 @@ export interface SteamApiError {
   message: string
   code?: number
   type: "validation" | "api" | "network" | "timeout" | "rate_limit"
+}
+
+export interface InventoryInfo {
+  inventoryValue: number
+  itemCount: number
+  isPrivate: boolean
+  error: string | null
 }

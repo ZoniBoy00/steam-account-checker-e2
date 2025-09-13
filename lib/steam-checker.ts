@@ -1,9 +1,10 @@
-import type { SteamAccount, CheckStats, TokenInfo, JWTValidation, UserProfile, BanInfo } from "./types"
+import type { SteamAccount, CheckStats, TokenInfo, JWTValidation, UserProfile, BanInfo, InventoryInfo } from "./types"
 
 export async function checkSteamAccounts(
   tokens: string[],
   apiKey: string,
   onProgress?: (current: number, total: number) => void,
+  checkInventory = false,
 ): Promise<{ accounts: SteamAccount[]; stats: CheckStats }> {
   if (!apiKey || apiKey.trim().length === 0) {
     throw new Error("Steam Web API key is required. Please set it in the Settings tab.")
@@ -27,7 +28,7 @@ export async function checkSteamAccounts(
     onProgress?.(i + 1, tokens.length)
 
     try {
-      const account = await processToken(token, i + 1, apiKey)
+      const account = await processToken(token, i + 1, apiKey, checkInventory)
       accounts.push(account)
 
       // Update stats
@@ -95,7 +96,12 @@ export async function checkSteamAccounts(
   return { accounts, stats }
 }
 
-async function processToken(token: string, accountNumber: number, apiKey: string): Promise<SteamAccount> {
+async function processToken(
+  token: string,
+  accountNumber: number,
+  apiKey: string,
+  checkInventory = false,
+): Promise<SteamAccount> {
   console.log(`[v0] Processing token ${accountNumber}:`, token.substring(0, 50) + "...")
 
   const tokenInfo = parseTokenFormat(token)
@@ -126,6 +132,11 @@ async function processToken(token: string, accountNumber: number, apiKey: string
 
   const userProfile = await getUserProfile(steamId, apiKey)
   const banInfo = await getBanInfo(steamId, apiKey)
+
+  let inventoryInfo: InventoryInfo | undefined
+  if (checkInventory && steamId && steamId !== "Error" && steamId !== "Unknown") {
+    inventoryInfo = await getInventoryInfo(steamId)
+  }
 
   let status = "Valid"
   if (jwtValidation) {
@@ -177,6 +188,61 @@ async function processToken(token: string, accountNumber: number, apiKey: string
     gameBans: banInfo.NumberOfGameBans,
     personaState: userProfile.persona_state,
     originalToken: token.trim(),
+    inventory: inventoryInfo,
+  }
+}
+
+async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
+  const maxRetries = 2
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[v0] Fetching inventory for Steam ID: ${steamId}`)
+      const response = await fetch(`/api/steam/inventory?steamId=${steamId}`)
+
+      if (response.status === 429) {
+        // Rate limited, wait and retry
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
+          continue
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(`Inventory API request failed: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log(`[v0] Inventory info received for ${steamId}:`, {
+        inventoryValue: data.inventoryValue,
+        itemCount: data.itemCount,
+        isPrivate: data.isPrivate,
+        error: data.error,
+      })
+
+      return {
+        inventoryValue: data.inventoryValue || 0,
+        itemCount: data.itemCount || 0,
+        isPrivate: data.isPrivate || false,
+        error: data.error || null,
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Unknown error")
+
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
+        continue
+      }
+    }
+  }
+
+  console.error("Error fetching inventory info after retries:", lastError)
+  return {
+    inventoryValue: 0,
+    itemCount: 0,
+    isPrivate: false,
+    error: lastError?.message || "Failed to fetch inventory",
   }
 }
 

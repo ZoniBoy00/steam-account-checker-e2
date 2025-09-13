@@ -12,7 +12,17 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { HelpCircle, Key, FileText, Shield, AlertTriangle, CheckCircle, ExternalLink, Download } from "lucide-react"
+import {
+  HelpCircle,
+  Key,
+  FileText,
+  Shield,
+  AlertTriangle,
+  CheckCircle,
+  ExternalLink,
+  Download,
+  User,
+} from "lucide-react"
 
 export function HelpModal() {
   return (
@@ -67,8 +77,32 @@ export function HelpModal() {
 
             <section>
               <h3 className="font-semibold text-lg text-slate-200 mb-4 flex items-center gap-2">
+                <User className="h-5 w-5 text-blue-400" />
+                2. Steam Authentication (Recommended)
+              </h3>
+              <div className="space-y-3 ml-7">
+                <p className="text-slate-300">For better inventory access and to bypass API restrictions:</p>
+                <ol className="list-decimal list-inside space-y-2 ml-4 text-slate-400">
+                  <li>Go to the Settings tab and find the "Steam Authentication" section</li>
+                  <li>Click "Login with Steam" to authenticate with your Steam account</li>
+                  <li>You'll be redirected to Steam's official login page</li>
+                  <li>After successful login, you'll be redirected back with authentication</li>
+                  <li>Your authenticated session will allow access to inventory data</li>
+                </ol>
+                <Alert className="border-blue-500/50 bg-blue-500/10 mt-4">
+                  <CheckCircle className="h-4 w-4 text-blue-400" />
+                  <AlertDescription className="text-blue-200">
+                    <strong>Benefits:</strong> Steam authentication bypasses "Auth Required" limitations and provides
+                    access to inventory data that would otherwise be blocked.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="font-semibold text-lg text-slate-200 mb-4 flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-400" />
-                2. Adding Steam Tokens
+                3. Adding Steam Tokens
               </h3>
               <div className="space-y-4 ml-7">
                 <p className="text-slate-300">The checker supports multiple token formats:</p>
@@ -105,12 +139,13 @@ export function HelpModal() {
             <section>
               <h3 className="font-semibold text-lg text-slate-200 mb-4 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-400" />
-                3. Running the Check
+                4. Running the Check
               </h3>
               <div className="space-y-3 ml-7">
                 <ol className="list-decimal list-inside space-y-2 text-slate-400">
                   <li>Add your tokens using one of the methods above</li>
                   <li>Ensure your Steam Web API key is configured in Settings</li>
+                  <li>(Optional) Login with Steam for better inventory access</li>
                   <li>Click "Check Accounts" to start the validation process</li>
                   <li>Monitor the progress bar as accounts are processed</li>
                   <li>View results in the Results tab once complete</li>
@@ -121,7 +156,7 @@ export function HelpModal() {
             <section>
               <h3 className="font-semibold text-lg text-slate-200 mb-4 flex items-center gap-2">
                 <Download className="h-5 w-5 text-indigo-400" />
-                4. Exporting Results
+                5. Exporting Results
               </h3>
               <div className="space-y-3 ml-7">
                 <p className="text-slate-300">After checking, you can export your results:</p>
@@ -139,7 +174,7 @@ export function HelpModal() {
             <section>
               <h3 className="font-semibold text-lg text-slate-200 mb-4 flex items-center gap-2">
                 <Shield className="h-5 w-5 text-red-400" />
-                5. Understanding Results
+                6. Understanding Results
               </h3>
               <div className="space-y-3 ml-7">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -178,13 +213,30 @@ export function HelpModal() {
                     </ul>
                   </div>
                 </div>
+                <div className="mt-4">
+                  <h4 className="font-medium text-slate-200 mb-2">Inventory Status:</h4>
+                  <ul className="space-y-1 text-xs">
+                    <li className="flex items-center gap-2">
+                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Loaded</Badge>
+                      <span className="text-slate-400">Inventory data successfully retrieved</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Private</Badge>
+                      <span className="text-slate-400">Inventory is set to private</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Auth Required</Badge>
+                      <span className="text-slate-400">Steam authentication needed for access</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </section>
 
             <section>
               <h3 className="font-semibold text-lg text-slate-200 mb-4 flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-orange-400" />
-                6. Troubleshooting
+                7. Troubleshooting
               </h3>
               <div className="space-y-3 ml-7">
                 <div className="space-y-4">
@@ -198,10 +250,17 @@ export function HelpModal() {
                         <strong>"Invalid API key":</strong> Verify your API key is correct and active
                       </li>
                       <li>
+                        <strong>"Auth Required" for inventory:</strong> Use Steam Authentication in Settings for better
+                        access
+                      </li>
+                      <li>
                         <strong>"Rate limit exceeded":</strong> Wait a few minutes before checking more accounts
                       </li>
                       <li>
                         <strong>"Network error":</strong> Check your internet connection and try again
+                      </li>
+                      <li>
+                        <strong>Steam login not working:</strong> Ensure popups are enabled and try again
                       </li>
                     </ul>
                   </div>
@@ -212,11 +271,12 @@ export function HelpModal() {
             <section>
               <h3 className="font-semibold text-lg text-slate-200 mb-4 flex items-center gap-2">
                 <Shield className="h-5 w-5 text-blue-400" />
-                7. Security & Privacy
+                8. Security & Privacy
               </h3>
               <div className="space-y-3 ml-7">
                 <ul className="list-disc list-inside space-y-1 ml-4 text-slate-400 text-xs">
                   <li>Your Steam API key is stored locally in your browser only</li>
+                  <li>Steam authentication uses official Steam OpenID protocol</li>
                   <li>No tokens or account data are stored on external servers</li>
                   <li>All API calls are made directly to Steam's official servers</li>
                   <li>Use this tool responsibly and only with accounts you own</li>
@@ -224,8 +284,8 @@ export function HelpModal() {
                 <Alert className="border-blue-500/50 bg-blue-500/10 mt-4">
                   <Shield className="h-4 w-4 text-blue-400" />
                   <AlertDescription className="text-blue-200">
-                    <strong>Privacy:</strong> This tool processes data locally in your browser. No information is sent
-                    to third-party services.
+                    <strong>Privacy:</strong> This tool processes data locally in your browser. Steam authentication is
+                    handled through official Steam services with no third-party involvement.
                   </AlertDescription>
                 </Alert>
               </div>

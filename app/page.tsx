@@ -35,6 +35,7 @@ import { TokenInput } from "@/components/token-input"
 import { ProgressDisplay } from "@/components/progress-display"
 import { SettingsPanel } from "@/components/settings-panel"
 import { HelpModal } from "@/components/help-modal"
+import { SteamLogin } from "@/components/steam-login"
 import { checkSteamAccounts } from "@/lib/steam-checker"
 import { SecurityUtils } from "@/lib/security"
 import type { SteamAccount, CheckStats } from "@/lib/types"
@@ -57,6 +58,9 @@ export default function SteamCheckerPage() {
   const [currentAccount, setCurrentAccount] = useState(0)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [checkInventory, setCheckInventory] = useState(false)
+  const [steamAuthenticated, setSteamAuthenticated] = useState(false)
+  const [authenticatedSteamId, setAuthenticatedSteamId] = useState<string | null>(null)
 
   const tokenCount = useMemo(() => {
     return tokens.split("\n").filter((t) => t.trim()).length
@@ -74,11 +78,9 @@ export default function SteamCheckerPage() {
         if (SecurityUtils.validateApiKey(decryptedKey)) {
           setApiKey(decryptedKey)
         } else {
-          // Invalid key, remove it
           localStorage.removeItem("steam_api_key")
         }
       } catch {
-        // Fallback for old plain text keys
         if (SecurityUtils.validateApiKey(savedApiKey)) {
           setApiKey(savedApiKey)
         } else {
@@ -86,7 +88,16 @@ export default function SteamCheckerPage() {
         }
       }
     }
+
+    const savedInventoryPref = localStorage.getItem("check_inventory")
+    if (savedInventoryPref === "true") {
+      setCheckInventory(true)
+    }
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem("check_inventory", checkInventory.toString())
+  }, [checkInventory])
 
   const saveApiKey = useCallback(() => {
     const sanitizedKey = SecurityUtils.sanitizeInput(apiKey.trim())
@@ -127,7 +138,6 @@ export default function SteamCheckerPage() {
       event.target.value = ""
 
       if (file.size > 5 * 1024 * 1024) {
-        // 5MB limit
         console.log("[v0] File too large:", file.size)
         setError("File too large. Maximum size is 5MB.")
         setTimeout(() => setError(""), 3000)
@@ -138,12 +148,11 @@ export default function SteamCheckerPage() {
       const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf("."))
       const isValidExtension = allowedExtensions.includes(fileExtension)
 
-      // Accept any text-based MIME type or empty MIME type (common for .txt files)
       const isValidMimeType =
         file.type === "" ||
         file.type === "text/plain" ||
         file.type.startsWith("text/") ||
-        file.type === "application/octet-stream" // Sometimes .txt files have this MIME type
+        file.type === "application/octet-stream"
 
       console.log("[v0] File validation:", {
         extension: fileExtension,
@@ -193,11 +202,9 @@ export default function SteamCheckerPage() {
           if (!trimmedLine) continue
 
           if (trimmedLine.includes("----")) {
-            // Keep the full line with username----token format
             parsedTokens.push(trimmedLine)
             console.log("[v0] Added full username----token line")
           } else {
-            // Assume it's just a token
             parsedTokens.push(trimmedLine)
             console.log("[v0] Added direct token")
           }
@@ -306,10 +313,15 @@ export default function SteamCheckerPage() {
         return
       }
 
-      const results = await checkSteamAccounts(tokenList, sanitizedApiKey, (current, total) => {
-        setCurrentAccount(current)
-        setProgress((current / total) * 100)
-      })
+      const results = await checkSteamAccounts(
+        tokenList,
+        sanitizedApiKey,
+        (current, total) => {
+          setCurrentAccount(current)
+          setProgress((current / total) * 100)
+        },
+        checkInventory,
+      )
 
       setAccounts(results.accounts)
       setStats(results.stats)
@@ -323,7 +335,7 @@ export default function SteamCheckerPage() {
       setProgress(0)
       setCurrentAccount(0)
     }
-  }, [canCheck, tokens, apiKey])
+  }, [canCheck, tokens, apiKey, checkInventory])
 
   const exportResults = useCallback(() => {
     if (accounts.length === 0) return
@@ -409,6 +421,11 @@ export default function SteamCheckerPage() {
     setSuccess(`Exported ${validAccounts.length} clean tokens (no gameplay bans) to file`)
     setTimeout(() => setSuccess(""), 3000)
   }, [accounts])
+
+  const handleSteamAuthChange = useCallback((isAuthenticated: boolean, steamId?: string) => {
+    setSteamAuthenticated(isAuthenticated)
+    setAuthenticatedSteamId(steamId || null)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -686,6 +703,8 @@ export default function SteamCheckerPage() {
               onExportTokens={exportTokens}
               onClearTokens={clearTokens}
               canCheck={canCheck}
+              checkInventory={checkInventory}
+              setCheckInventory={setCheckInventory}
             />
 
             {isChecking && (
@@ -749,11 +768,15 @@ export default function SteamCheckerPage() {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4 sm:space-y-6">
+            <SteamLogin onAuthChange={handleSteamAuthChange} />
+
             <SettingsPanel
               apiKey={apiKey}
               setApiKey={setApiKey}
               onSaveApiKey={saveApiKey}
               onClearApiKey={clearApiKey}
+              checkInventory={checkInventory}
+              setCheckInventory={setCheckInventory}
             />
           </TabsContent>
         </Tabs>
