@@ -422,14 +422,14 @@ export default function SteamCheckerPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="text-center mb-6 sm:mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="relative flex items-center justify-center gap-3 mb-4">
             <div className="p-2 sm:p-3 bg-blue-600/20 rounded-xl border border-blue-500/30">
               <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-blue-400" />
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-balance text-white">
               Steam Account Checker
             </h1>
-            <div className="ml-auto">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
               <NotificationCenter
                 notifications={notifications}
                 onMarkAsRead={markAsRead}

@@ -1,10 +1,23 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import type { Notification } from "@/components/notification-center"
 
 export function useNotificationCenter() {
   const [notifications, setNotifications] = useState<Notification[]>([])
+
+  useEffect(() => {
+    const testNotification: Notification = {
+      id: "test-" + Date.now().toString(),
+      title: "Notification System Ready",
+      description:
+        "The notification center is working properly. You can now receive updates about your Steam account checks.",
+      variant: "info",
+      timestamp: new Date(),
+      read: false,
+    }
+    setNotifications([testNotification])
+  }, [])
 
   const addNotification = useCallback(
     (title: string, description: string, variant: "success" | "error" | "warning" | "info" = "info") => {

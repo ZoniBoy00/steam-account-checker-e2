@@ -85,6 +85,10 @@ export async function GET(request: NextRequest) {
   const steamAuth = request.cookies.get("steam_auth")
   const isAuthenticated = !!steamAuth?.value
 
+  console.log(`[Inventory API] Processing request for Steam ID: ${sanitizedSteamId}`)
+  console.log(`[Inventory API] API Key provided: ${apiKey ? "Yes (length: " + apiKey.length + ")" : "No"}`)
+  console.log(`[Inventory API] Steam authenticated: ${isAuthenticated}`)
+
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => {
@@ -134,8 +138,12 @@ export async function GET(request: NextRequest) {
     let response: Response | null = null
     let lastError = ""
 
+    console.log(`[Inventory API] Trying ${inventoryMethods.length} methods`)
+
     for (const method of inventoryMethods) {
       try {
+        console.log(`[Inventory API] Attempting method: ${method.type}`)
+
         const headers: Record<string, string> = {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -164,6 +172,8 @@ export async function GET(request: NextRequest) {
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 8000)),
         ])
 
+        console.log(`[Inventory API] ${method.type} response: ${response.status} ${response.statusText}`)
+
         if (response.ok) {
           const responseText = await response.text()
 
@@ -177,6 +187,7 @@ export async function GET(request: NextRequest) {
               responseText.includes("This inventory is currently private")
             ) {
               lastError = "Private inventory detected"
+              console.log(`[Inventory API] ${method.type} detected private inventory`)
               continue
             }
             throw new Error("Invalid JSON response")
@@ -189,6 +200,7 @@ export async function GET(request: NextRequest) {
               const inventoryValue = data.inventory.inventoryValue || data.steamUser.inventoryValue || 0
               const itemCount = data.inventory.skins ? data.inventory.skins.length : 0
 
+              console.log(`[Inventory API] SkinBackpack success: $${inventoryValue}, ${itemCount} items`)
               clearTimeout(timeoutId)
               return NextResponse.json(
                 {
@@ -208,20 +220,31 @@ export async function GET(request: NextRequest) {
             } else if (data.error) {
               if (data.error.includes("private") || data.error.includes("Private")) {
                 lastError = "Private inventory"
+                console.log(`[Inventory API] SkinBackpack reported private inventory`)
                 continue
               }
               lastError = data.error
+              console.log(`[Inventory API] SkinBackpack error: ${data.error}`)
               continue
             } else {
               lastError = "No inventory data from SkinBackpack"
+              console.log(`[Inventory API] SkinBackpack returned no data`)
               continue
             }
           } else if (method.type === "webapi") {
             // Steam Web API format
+            console.log(`[Inventory API] Steam Web API response structure:`, {
+              hasResponse: !!data.response,
+              success: data.response?.success,
+              itemCount: data.response?.items?.length || 0,
+              descriptionCount: data.response?.descriptions?.length || 0,
+            })
+
             if (data.response && data.response.success === 1) {
               const items = data.response.items || []
               const descriptions = data.response.descriptions || []
 
+              console.log(`[Inventory API] Steam Web API success: ${items.length} items`)
               clearTimeout(timeoutId)
               return NextResponse.json(
                 {
@@ -241,6 +264,15 @@ export async function GET(request: NextRequest) {
             } else if (data.response && data.response.success === 15) {
               // Private inventory
               lastError = "Private inventory"
+              console.log(`[Inventory API] Steam Web API reported private inventory (success=15)`)
+              continue
+            } else {
+              console.log(`[Inventory API] Steam Web API unexpected response:`, {
+                success: data.response?.success,
+                error: data.error,
+                fullResponse: JSON.stringify(data).substring(0, 500),
+              })
+              lastError = data.error || `Steam Web API returned success=${data.response?.success}`
               continue
             }
           } else {
@@ -248,13 +280,16 @@ export async function GET(request: NextRequest) {
             if (data.success === false) {
               if (data.Error && (data.Error.includes("private") || data.Error.includes("Private"))) {
                 lastError = "Private inventory"
+                console.log(`[Inventory API] ${method.type} reported private inventory`)
                 continue
               }
               lastError = data.Error || "No inventory data available"
+              console.log(`[Inventory API] ${method.type} failed: ${lastError}`)
               continue
             }
 
             if (!data.assets && !data.rgInventory && !data.items) {
+              console.log(`[Inventory API] ${method.type} success: empty inventory`)
               clearTimeout(timeoutId)
               return NextResponse.json(
                 {
@@ -286,6 +321,7 @@ export async function GET(request: NextRequest) {
             }
 
             const itemCount = assets.length
+            console.log(`[Inventory API] ${method.type} success: ${itemCount} items`)
 
             clearTimeout(timeoutId)
             return NextResponse.json(
@@ -309,27 +345,34 @@ export async function GET(request: NextRequest) {
             const errorText = await response.text()
             if (errorText.includes("private") || errorText.includes("Private")) {
               lastError = "Private inventory"
+              console.log(`[Inventory API] ${method.type} 403: private inventory`)
             } else {
               lastError = "API blocked"
+              console.log(`[Inventory API] ${method.type} 403: API blocked`)
             }
           } catch {
             lastError = "403 Forbidden"
+            console.log(`[Inventory API] ${method.type} 403: Forbidden`)
           }
           response = null
         } else if (response.status === 400) {
           lastError = "400 Bad Request"
+          console.log(`[Inventory API] ${method.type} 400: Bad Request`)
           response = null
         } else {
           lastError = `HTTP ${response.status}`
+          console.log(`[Inventory API] ${method.type} ${response.status}: ${response.statusText}`)
           response = null
         }
       } catch (error) {
         lastError = error instanceof Error ? error.message : "Unknown error"
+        console.log(`[Inventory API] ${method.type} exception: ${lastError}`)
         response = null
       }
     }
 
     clearTimeout(timeoutId)
+    console.log(`[Inventory API] All methods failed. Last error: ${lastError}`)
 
     if (lastError.includes("Private inventory") || lastError.includes("private")) {
       return NextResponse.json(
