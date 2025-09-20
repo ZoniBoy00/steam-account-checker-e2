@@ -176,7 +176,7 @@ async function processToken(
 }
 
 async function getInventoryInfo(steamId: string, apiKey?: string): Promise<InventoryInfo> {
-  const maxRetries = 3
+  const maxRetries = 2 // Reduced retries for faster response
   let lastError: Error | null = null
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -191,13 +191,13 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
 
       if (response.status === 429) {
         if (attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
+          await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)))
           continue
         }
       }
 
       if (!response.ok) {
-        throw new Error(`Inventory API request failed: ${response.status} ${response.statusText}`)
+        throw new Error(`Inventory API request failed: ${response.status}`)
       }
 
       const data = await response.json()
@@ -212,33 +212,12 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
           }
         }
 
-        if (data.requiresAuth) {
-          return {
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: false,
-            error: "Steam authentication required",
-          }
-        }
-
-        if (data.suggestion) {
-          return {
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: false,
-            error: data.error,
-            suggestion: data.suggestion,
-          }
-        }
-
-        if (data.method === "rate_limited" || data.method === "access_restricted") {
-          return {
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: false,
-            error: data.error,
-            suggestion: data.suggestion,
-          }
+        return {
+          inventoryValue: 0,
+          itemCount: 0,
+          isPrivate: false,
+          error: data.error,
+          suggestion: data.suggestion,
         }
       }
 
@@ -253,7 +232,7 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
       lastError = error instanceof Error ? error : new Error("Unknown error")
 
       if (attempt < maxRetries) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
+        await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)))
         continue
       }
     }
@@ -397,7 +376,7 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
             if (expMatch) payloadData.exp = Number.parseInt(expMatch[1])
             if (iatMatch) payloadData.iat = Number.parseInt(iatMatch[1])
           } else {
-            validation.error = `JWT payload parsing failed: ${jsonError}`
+            validation.error = `JWT payload parsing failed`
             return validation
           }
         }
@@ -552,7 +531,7 @@ async function getUserProfile(steamId: string, apiKey: string): Promise<UserProf
       }
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+        throw new Error(`API request failed: ${response.status}`)
       }
 
       const data = await response.json()
@@ -611,7 +590,7 @@ async function getBanInfo(steamId: string, apiKey: string): Promise<BanInfo> {
       }
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+        throw new Error(`API request failed: ${response.status}`)
       }
 
       const data = await response.json()

@@ -5,12 +5,11 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number; blocked
 function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
   const now = Date.now()
   const windowMs = 60 * 1000 // 1 minute window
-  const maxRequests = 10 // Lower limit for inventory API due to complexity
-  const blockDuration = 5 * 60 * 1000 // 5 minutes block for abuse
+  const maxRequests = 15 // Increased limit
+  const blockDuration = 2 * 60 * 1000 // 2 minutes block for abuse
 
   const current = rateLimitMap.get(ip)
 
-  // Check if IP is currently blocked
   if (current?.blocked && now < current.resetTime) {
     return { allowed: false, remaining: 0 }
   }
@@ -21,7 +20,6 @@ function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
   }
 
   if (current.count >= maxRequests) {
-    // Block IP for repeated abuse
     current.blocked = true
     current.resetTime = now + blockDuration
     return { allowed: false, remaining: 0 }
@@ -42,7 +40,6 @@ function sanitizeInput(input: string): string {
   return input.replace(/[<>'"&]/g, "").trim()
 }
 
-// CS2 App ID
 const CS2_APP_ID = "730"
 
 export async function GET(request: NextRequest) {
@@ -62,7 +59,7 @@ export async function GET(request: NextRequest) {
         status: 429,
         headers: {
           "X-RateLimit-Remaining": "0",
-          "Retry-After": "300",
+          "Retry-After": "120",
         },
       },
     )
@@ -82,58 +79,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid Steam ID format" }, { status: 400 })
   }
 
-  const steamAuth = request.cookies.get("steam_auth")
-  const isAuthenticated = !!steamAuth?.value
-
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => {
-      controller.abort()
-    }, 15000) // 15 seconds timeout
+    const timeoutId = setTimeout(() => controller.abort(), 12000)
 
     const inventoryMethods = [
-      // Method 1: Steam Web API (requires API key but most reliable)
+      // Method 1: Direct community inventory access (most reliable)
+      {
+        url: `https://steamcommunity.com/inventory/${sanitizedSteamId}/${CS2_APP_ID}/2?l=english&count=5000`,
+        type: "community_direct" as const,
+        timeout: 8000,
+      },
+
+      // Method 2: Steam Web API (if available)
       ...(apiKey
         ? [
             {
               url: `https://api.steampowered.com/IEconService/GetInventoryItemsWithDescriptions/v1/?key=${apiKey}&steamid=${sanitizedSteamId}&appid=${CS2_APP_ID}&contextid=2&count=5000`,
-              type: "webapi" as const,
+              type: "steam_api" as const,
+              timeout: 6000,
             },
           ]
         : []),
 
-      // Method 2: SkinBackpack API (reliable third-party service)
-      {
-        url: `https://skinbackpack.com/api/cs2/inventory/${sanitizedSteamId}`,
-        type: "skinbackpack" as const,
-      },
-
-      // Method 3: Community inventory JSON endpoint (new format) - Try authenticated first
-      ...(isAuthenticated
-        ? [
-            {
-              url: `https://steamcommunity.com/inventory/${sanitizedSteamId}/${CS2_APP_ID}/2?l=english&count=5000`,
-              type: "community_new_auth" as const,
-            },
-          ]
-        : []),
-
-      // Method 4: Community inventory JSON endpoint (new format) - Public access
-      {
-        url: `https://steamcommunity.com/inventory/${sanitizedSteamId}/${CS2_APP_ID}/2?l=english&count=5000`,
-        type: "community_new" as const,
-      },
-
-      // Method 5: Community inventory JSON endpoint (legacy format)
+      // Method 3: Alternative community endpoint
       {
         url: `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/json/${CS2_APP_ID}/2?l=english&count=5000`,
         type: "community_legacy" as const,
+        timeout: 8000,
       },
     ]
 
-    let response: Response | null = null
-    let lastError = ""
-    const methodErrors: string[] = []
+    let bestResult: any = null
+    let isPrivate = false
+    const errors: string[] = []
 
     for (const method of inventoryMethods) {
       try {
@@ -142,243 +121,92 @@ export async function GET(request: NextRequest) {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept: "application/json, text/plain, */*",
           "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate, br",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
         }
 
-        // Add Steam authentication for community endpoints
-        if (method.type.includes("community") && isAuthenticated && steamAuth?.value) {
-          headers["Cookie"] = `steamLoginSecure=${steamAuth.value}`
-          headers["Referer"] = `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/`
-          headers["Origin"] = "https://steamcommunity.com"
-          headers["Sec-Fetch-Dest"] = "empty"
-          headers["Sec-Fetch-Mode"] = "cors"
-          headers["Sec-Fetch-Site"] = "same-origin"
-        }
-
-        response = await Promise.race([
-          fetch(method.url, {
-            headers,
-            signal: controller.signal,
-          }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 8000)),
+        const response = await Promise.race([
+          fetch(method.url, { headers, signal: controller.signal }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Method timeout")), method.timeout)),
         ])
 
         if (response.ok) {
           const responseText = await response.text()
 
+          // Check for private inventory indicators
+          if (
+            responseText.includes("This profile is private") ||
+            responseText.includes("inventory is private") ||
+            responseText.includes("This inventory is currently private")
+          ) {
+            isPrivate = true
+            errors.push(`${method.type}: Private inventory`)
+            continue
+          }
+
           let data
           try {
             data = JSON.parse(responseText)
-          } catch (parseError) {
-            if (
-              responseText.includes("This profile is private") ||
-              responseText.includes("inventory is private") ||
-              responseText.includes("This inventory is currently private")
-            ) {
-              lastError = "Private inventory detected"
-              methodErrors.push(`${method.type}: Private inventory`)
-              continue
-            }
-            methodErrors.push(`${method.type}: Invalid JSON response`)
-            throw new Error("Invalid JSON response")
+          } catch {
+            errors.push(`${method.type}: Invalid response format`)
+            continue
           }
 
-          // Handle SkinBackpack API response
-          if (method.type === "skinbackpack") {
-            // SkinBackpack API format
-            if (data.steamUser && data.inventory) {
-              const inventoryValue = data.inventory.inventoryValue || data.steamUser.inventoryValue || 0
-              const itemCount = data.inventory.skins ? data.inventory.skins.length : 0
-
-              clearTimeout(timeoutId)
-              return NextResponse.json(
-                {
-                  inventoryValue: Math.round(inventoryValue * 100) / 100,
-                  itemCount,
-                  isPrivate: false,
-                  error: null,
-                  method: "SkinBackpack API",
-                },
-                {
-                  headers: {
-                    "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-                    "Cache-Control": "private, no-cache",
-                  },
-                },
-              )
-            } else if (data.error) {
-              if (data.error.includes("private") || data.error.includes("Private")) {
-                lastError = "Private inventory"
-                methodErrors.push(`${method.type}: Private inventory`)
-                continue
+          // Handle different response formats
+          if (method.type === "steam_api") {
+            if (data.response?.success === 1) {
+              bestResult = {
+                items: data.response.items || [],
+                descriptions: data.response.descriptions || [],
+                method: "Steam Web API",
               }
-              lastError = data.error
-              methodErrors.push(`${method.type}: ${data.error}`)
-              continue
-            } else {
-              lastError = "No inventory data from SkinBackpack"
-              methodErrors.push(`${method.type}: No inventory data`)
-              continue
-            }
-          } else if (method.type === "webapi") {
-            // Steam Web API format
-            if (data.response && data.response.success === 1) {
-              const items = data.response.items || []
-              const descriptions = data.response.descriptions || []
-
-              clearTimeout(timeoutId)
-              return NextResponse.json(
-                {
-                  inventoryValue: calculateInventoryValue(items, descriptions),
-                  itemCount: items.length,
-                  isPrivate: false,
-                  error: null,
-                  method: "Steam Web API",
-                },
-                {
-                  headers: {
-                    "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-                    "Cache-Control": "private, no-cache",
-                  },
-                },
-              )
-            } else if (data.response && data.response.success === 15) {
-              // Private inventory
-              lastError = "Private inventory"
-              methodErrors.push(`${method.type}: Private inventory`)
-              continue
-            } else {
-              if (data.error_message?.includes("Access Denied")) {
-                lastError = `Steam Web API access denied - check API key permissions`
-                methodErrors.push(`${method.type}: Access denied`)
-              } else if (data.error_message?.includes("Invalid API Key")) {
-                lastError = `Steam Web API key is invalid or expired`
-                methodErrors.push(`${method.type}: Invalid API key`)
-              } else if (data.error_message?.includes("Internal Server Error")) {
-                lastError = `Steam servers temporarily unavailable`
-                methodErrors.push(`${method.type}: Server error`)
-              } else if (data.error_message?.includes("Forbidden")) {
-                lastError = `Steam Web API request forbidden - check API key permissions`
-                methodErrors.push(`${method.type}: Forbidden`)
-              } else if (data.error_message) {
-                lastError = `Steam Web API: ${data.error_message}`
-                methodErrors.push(`${method.type}: ${data.error_message}`)
-              } else if (data.error) {
-                lastError = `Steam Web API: ${data.error}`
-                methodErrors.push(`${method.type}: ${data.error}`)
-              } else if (data.response?.success === 0) {
-                lastError = "Steam Web API: No inventory data available"
-                methodErrors.push(`${method.type}: No data available`)
-              } else {
-                lastError = `Steam Web API: Unexpected response format`
-                methodErrors.push(`${method.type}: Unexpected response`)
-              }
+              break
+            } else if (data.response?.success === 15) {
+              isPrivate = true
               continue
             }
           } else {
             // Community API format
             if (data.success === false) {
-              if (data.Error && (data.Error.includes("private") || data.Error.includes("Private"))) {
-                lastError = "Private inventory"
-                methodErrors.push(`${method.type}: Private inventory`)
+              if (data.Error?.includes("private")) {
+                isPrivate = true
                 continue
               }
-              lastError = data.Error || "No inventory data available"
-              methodErrors.push(`${method.type}: ${data.Error || "No data"}`)
+              errors.push(`${method.type}: ${data.Error || "Access denied"}`)
               continue
             }
 
-            if (!data.assets && !data.rgInventory && !data.items) {
-              clearTimeout(timeoutId)
-              return NextResponse.json(
-                {
-                  inventoryValue: 0,
-                  itemCount: 0,
-                  isPrivate: false,
-                  error: null,
-                  method: method.type,
-                },
-                {
-                  headers: {
-                    "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-                  },
-                },
-              )
-            }
+            const assets = data.assets || data.items || Object.values(data.rgInventory || {})
+            const descriptions = data.descriptions || Object.values(data.rgDescriptions || {})
 
-            let assets = data.assets || data.items || []
-            let descriptions = data.descriptions || []
-
-            // Legacy format support
-            if (data.rgInventory && data.rgDescriptions) {
-              assets = Object.values(data.rgInventory)
-              descriptions = Object.values(data.rgDescriptions)
-            }
-
-            if (!Array.isArray(assets)) {
-              assets = Object.values(assets)
-            }
-
-            const itemCount = assets.length
-
-            clearTimeout(timeoutId)
-            return NextResponse.json(
-              {
-                inventoryValue: calculateInventoryValue(assets, descriptions),
-                itemCount,
-                isPrivate: false,
-                error: null,
+            if (Array.isArray(assets) || Object.keys(assets).length > 0) {
+              bestResult = {
+                items: Array.isArray(assets) ? assets : Object.values(assets),
+                descriptions: Array.isArray(descriptions) ? descriptions : Object.values(descriptions),
                 method: method.type,
-              },
-              {
-                headers: {
-                  "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-                  "Cache-Control": "private, no-cache",
-                },
-              },
-            )
+              }
+              break
+            }
           }
         } else if (response.status === 403) {
-          try {
-            const errorText = await response.text()
-            if (errorText.includes("private") || errorText.includes("Private")) {
-              lastError = "Private inventory"
-              methodErrors.push(`${method.type}: Private inventory`)
-            } else {
-              lastError = "Access forbidden"
-              methodErrors.push(`${method.type}: 403 Forbidden`)
-            }
-          } catch {
-            lastError = "403 Forbidden"
-            methodErrors.push(`${method.type}: 403 Forbidden`)
+          const errorText = await response.text().catch(() => "")
+          if (errorText.includes("private")) {
+            isPrivate = true
           }
-          response = null
-        } else if (response.status === 429) {
-          lastError = "Rate limited"
-          methodErrors.push(`${method.type}: Rate limited`)
-          response = null
-        } else if (response.status === 400) {
-          lastError = "400 Bad Request"
-          methodErrors.push(`${method.type}: Bad request`)
-          response = null
+          errors.push(`${method.type}: Access forbidden (${response.status})`)
         } else {
-          lastError = `HTTP ${response.status}`
-          methodErrors.push(`${method.type}: HTTP ${response.status}`)
-          response = null
+          errors.push(`${method.type}: HTTP ${response.status}`)
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Unknown error"
-        lastError = errorMsg
-        methodErrors.push(`${method.type}: ${errorMsg}`)
-        response = null
+        errors.push(`${method.type}: ${errorMsg}`)
       }
     }
 
     clearTimeout(timeoutId)
 
-    if (lastError.includes("Private inventory") || lastError.includes("private")) {
+    // Return results based on what we found
+    if (isPrivate) {
       return NextResponse.json(
         {
           error: "This inventory is set to private",
@@ -388,115 +216,48 @@ export async function GET(request: NextRequest) {
           method: "private_inventory_detected",
         },
         {
-          status: 200,
-          headers: {
-            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-          },
+          headers: { "X-RateLimit-Remaining": rateLimit.remaining.toString() },
         },
       )
     }
 
-    if (lastError.includes("Invalid API key") || lastError.includes("Access denied")) {
+    if (bestResult) {
+      const inventoryValue = calculateInventoryValue(bestResult.items, bestResult.descriptions)
+      const itemCount = bestResult.items.length
+
       return NextResponse.json(
         {
-          error: "Steam Web API key issue detected. Using alternative methods.",
-          inventoryValue: 0,
-          itemCount: 0,
-          isPrivate: null,
-          method: "api_key_issue",
-          suggestion: "Check your Steam Web API key configuration",
+          inventoryValue,
+          itemCount,
+          isPrivate: false,
+          error: null,
+          method: bestResult.method,
         },
         {
-          status: 200,
-          headers: {
-            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-          },
+          headers: { "X-RateLimit-Remaining": rateLimit.remaining.toString() },
         },
       )
     }
 
-    if (lastError.includes("Rate limited") || lastError.includes("429")) {
-      return NextResponse.json(
-        {
-          error: "Steam API rate limit reached.",
-          inventoryValue: 0,
-          itemCount: 0,
-          isPrivate: null,
-          method: "rate_limited",
-          suggestion: "Wait a few minutes before checking this inventory again",
-        },
-        {
-          status: 200,
-          headers: {
-            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-          },
-        },
-      )
-    }
-
-    if (lastError.includes("403") || lastError.includes("Forbidden")) {
-      return NextResponse.json(
-        {
-          error: "Steam inventory access temporarily restricted.",
-          inventoryValue: 0,
-          itemCount: 0,
-          isPrivate: null,
-          method: "access_restricted",
-          suggestion: isAuthenticated
-            ? "Steam may be experiencing high traffic. Try again later."
-            : "Steam authentication might help with inventory access",
-          requiresAuth: !isAuthenticated,
-        },
-        {
-          status: 200,
-          headers: {
-            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-          },
-        },
-      )
-    }
-
+    // No successful results - provide helpful error message
     return NextResponse.json(
       {
-        error: "Unable to access inventory data at this time.",
+        error: "Unable to access inventory data. This may be due to Steam server issues or inventory privacy settings.",
         inventoryValue: 0,
         itemCount: 0,
         isPrivate: null,
-        method: "temporarily_unavailable",
-        suggestion: "Steam servers may be busy. Try again in a few minutes.",
+        method: "access_unavailable",
+        suggestion:
+          "Try again in a few minutes. If the issue persists, the inventory may be private or Steam servers may be experiencing issues.",
       },
       {
-        status: 200,
-        headers: {
-          "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-        },
+        headers: { "X-RateLimit-Remaining": rateLimit.remaining.toString() },
       },
     )
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.name === "AbortError" || error.message === "Connection timeout") {
-        return NextResponse.json(
-          {
-            error: "Request timeout - Steam servers may be slow",
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: null,
-            method: "timeout",
-            suggestion: "Try again in a moment",
-          },
-          {
-            status: 200,
-            headers: {
-              "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-            },
-          },
-        )
-      }
-    }
-
     return NextResponse.json(
       {
-        error: "Steam inventory service temporarily unavailable.",
+        error: "Steam inventory service temporarily unavailable",
         inventoryValue: 0,
         itemCount: 0,
         isPrivate: null,
@@ -505,9 +266,7 @@ export async function GET(request: NextRequest) {
       },
       {
         status: 200,
-        headers: {
-          "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-        },
+        headers: { "X-RateLimit-Remaining": rateLimit.remaining.toString() },
       },
     )
   }
@@ -530,9 +289,8 @@ function calculateInventoryValue(assets: any[], descriptions: any[]): number {
     for (const item of descriptions) {
       const tags = item.tags || []
       const rarityTag = tags.find((tag: any) => tag.category === "Rarity")
-      const typeTag = tags.find((tag: any) => tag.category === "Type")
 
-      if (rarityTag && typeTag) {
+      if (rarityTag) {
         const rarity = rarityTag.localized_tag_name || rarityTag.name
         const multiplier = rarityMultipliers[rarity] || 0.1
 

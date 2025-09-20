@@ -66,31 +66,31 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 ### Local Development
 
 1. **Clone the repository**
-   \`\`\`bash
+   ```bash
    git clone https://github.com/ZoniBoy00/steam-account-checker.git
    cd steam-account-checker
-   \`\`\`
+   ```
 
 2. **Install dependencies**
-   \`\`\`bash
+   ```bash
    npm install
    # or
    yarn install
-   \`\`\`
+   ```
 
 3. **Environment Setup** (Optional)
-   \`\`\`bash
+   ```bash
    cp .env.example .env.local
    # Add your Steam Web API key if available
    STEAM_API_KEY=your_steam_api_key_here
-   \`\`\`
+   ```
 
 4. **Run the development server**
-   \`\`\`bash
+   ```bash
    npm run dev
    # or
    yarn dev
-   \`\`\`
+   ```
 
 5. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
@@ -117,19 +117,19 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 The checker supports multiple token formats:
 
 **Username Format (Recommended):**
-\`\`\`
+```
 username----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-\`\`\`
+```
 
 **Direct JWT:**
-\`\`\`
+```
 eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-\`\`\`
+```
 
 **Cookie Format:**
-\`\`\`
+```
 steamLoginSecure=76561198123456789%7C%7CeyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-\`\`\`
+```
 
 ### File Upload
 1. Create a text file with tokens (one per line)
