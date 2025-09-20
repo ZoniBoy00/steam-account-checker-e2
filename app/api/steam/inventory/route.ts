@@ -285,7 +285,11 @@ export async function GET(request: NextRequest) {
               }
               console.log(`[Inventory API] Steam Web API detailed error analysis:`, errorDetails)
 
-              if (data.error_message) {
+              if (data.error_message?.includes("Access Denied") || data.error_message?.includes("Invalid API Key")) {
+                lastError = `Steam Web API Error: Invalid or unauthorized API key`
+              } else if (data.error_message?.includes("Internal Server Error")) {
+                lastError = `Steam Web API Error: Steam servers temporarily unavailable`
+              } else if (data.error_message) {
                 lastError = `Steam Web API Error: ${data.error_message}`
               } else if (data.error) {
                 lastError = `Steam Web API Error: ${data.error}`
@@ -412,16 +416,38 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (lastError.includes("403") || lastError.includes("400") || lastError.includes("API blocked")) {
-      if (isAuthenticated) {
+    if (
+      lastError.includes("403") ||
+      lastError.includes("400") ||
+      lastError.includes("API blocked") ||
+      lastError.includes("Invalid or unauthorized API key")
+    ) {
+      if (lastError.includes("Invalid or unauthorized API key")) {
         return NextResponse.json(
           {
-            error: "Unable to access inventory. Try using a Steam Web API key for better reliability.",
+            error: "Invalid Steam Web API key. Please check your API key in settings.",
             inventoryValue: 0,
             itemCount: 0,
             isPrivate: null,
             method: "failed",
-            suggestion: "Add a Steam Web API key in settings for improved access",
+            suggestion: "Verify your Steam Web API key is correct and has proper permissions",
+          },
+          {
+            status: 200,
+            headers: {
+              "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+            },
+          },
+        )
+      } else if (isAuthenticated) {
+        return NextResponse.json(
+          {
+            error: "Unable to access inventory. Steam Web API key may be invalid or Steam servers are busy.",
+            inventoryValue: 0,
+            itemCount: 0,
+            isPrivate: null,
+            method: "failed",
+            suggestion: "Check your Steam Web API key or try again later",
           },
           {
             status: 200,
