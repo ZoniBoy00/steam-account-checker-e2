@@ -412,8 +412,24 @@ export default function SteamCheckerPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+      {/* Floating orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse delay-2000"></div>
+
+        {/* Animated grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.03)_1px,transparent_1px)] bg-[size:50px_50px] animate-[drift_20s_ease-in-out_infinite]"></div>
+
+        {/* Subtle moving particles */}
+        <div className="absolute top-10 left-10 w-2 h-2 bg-blue-400/30 rounded-full animate-[float_6s_ease-in-out_infinite]"></div>
+        <div className="absolute top-1/3 right-20 w-1 h-1 bg-purple-400/40 rounded-full animate-[float_8s_ease-in-out_infinite_reverse]"></div>
+        <div className="absolute bottom-1/3 left-1/2 w-1.5 h-1.5 bg-cyan-400/35 rounded-full animate-[float_7s_ease-in-out_infinite]"></div>
+        <div className="absolute top-2/3 right-1/3 w-1 h-1 bg-blue-300/30 rounded-full animate-[float_9s_ease-in-out_infinite_reverse]"></div>
+      </div>
+
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 relative z-10">
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="p-2 sm:p-3 bg-blue-600/20 rounded-xl border border-blue-500/30">
@@ -647,7 +663,7 @@ export default function SteamCheckerPage() {
             </TabsTrigger>
             <TabsTrigger
               value="results"
-              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm"
+              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 sm:py-3 text-xs sm:text-sm"
             >
               <Users className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Results ({accounts.length})</span>
