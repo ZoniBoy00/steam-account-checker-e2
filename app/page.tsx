@@ -121,24 +121,14 @@ export default function SteamCheckerPage() {
 
   const handleFileUpload = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      console.log("[v0] File upload triggered")
       const file = event.target.files?.[0]
       if (!file) {
-        console.log("[v0] No file selected")
         return
       }
-
-      console.log("[v0] File selected:", {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        lastModified: file.lastModified,
-      })
 
       event.target.value = ""
 
       if (file.size > 5 * 1024 * 1024) {
-        console.log("[v0] File too large:", file.size)
         setError("File too large. Maximum size is 5MB.")
         setTimeout(() => setError(""), 3000)
         return
@@ -154,47 +144,29 @@ export default function SteamCheckerPage() {
         file.type.startsWith("text/") ||
         file.type === "application/octet-stream"
 
-      console.log("[v0] File validation:", {
-        extension: fileExtension,
-        mimeType: file.type,
-        isValidExtension,
-        isValidMimeType,
-      })
-
       if (!isValidExtension && !isValidMimeType) {
-        console.log("[v0] Invalid file type detected")
         setError(`Invalid file type. Please upload a text file (.txt, .csv, .log). File: ${file.name}`)
         setTimeout(() => setError(""), 5000)
         return
       }
 
-      console.log("[v0] Starting file read...")
-
       const reader = new FileReader()
       reader.onload = (e) => {
-        console.log("[v0] File read completed")
         const content = e.target?.result as string
         if (!content) {
-          console.log("[v0] No content in file")
           setError("File appears to be empty or unreadable.")
           setTimeout(() => setError(""), 3000)
           return
         }
 
-        console.log("[v0] File content loaded, length:", content.length)
-        console.log("[v0] First 100 characters:", content.substring(0, 100))
-
         const validation = SecurityUtils.validateFileContent(content)
         if (!validation.valid) {
-          console.log("[v0] File validation failed:", validation.error)
           setError(validation.error || "Invalid file content")
           setTimeout(() => setError(""), 3000)
           return
         }
 
         const lines = content.split(/\r?\n/).filter((line) => line.trim())
-        console.log("[v0] Total lines found:", lines.length)
-
         const parsedTokens: string[] = []
 
         for (const line of lines) {
@@ -203,17 +175,12 @@ export default function SteamCheckerPage() {
 
           if (trimmedLine.includes("----")) {
             parsedTokens.push(trimmedLine)
-            console.log("[v0] Added full username----token line")
           } else {
             parsedTokens.push(trimmedLine)
-            console.log("[v0] Added direct token")
           }
         }
 
-        console.log("[v0] Total tokens parsed:", parsedTokens.length)
-
         if (parsedTokens.length === 0) {
-          console.log("[v0] No tokens found in file")
           setError("No valid tokens found in file. Expected format: 'username----token' or just tokens.")
           setTimeout(() => setError(""), 5000)
           return
@@ -223,24 +190,17 @@ export default function SteamCheckerPage() {
           .map((token) => SecurityUtils.sanitizeInput(token))
           .filter((token) => token.length > 0)
 
-        console.log("[v0] Sanitized tokens count:", sanitizedTokens.length)
-
         const existingTokens = tokens.trim()
         const newTokens = existingTokens
           ? `${existingTokens}\n${sanitizedTokens.join("\n")}`
           : sanitizedTokens.join("\n")
 
-        console.log("[v0] Setting new tokens, total length:", newTokens.length)
         setTokens(newTokens)
-
-        console.log("[v0] Successfully imported", sanitizedTokens.length, "tokens")
-
         setSuccess(`Successfully imported ${sanitizedTokens.length} tokens from ${file.name}`)
         setTimeout(() => setSuccess(""), 3000)
       }
 
-      reader.onerror = (error) => {
-        console.log("[v0] File read error:", error)
+      reader.onerror = () => {
         setError("Failed to read file. Please try again.")
         setTimeout(() => setError(""), 3000)
       }
@@ -296,17 +256,12 @@ export default function SteamCheckerPage() {
         .split("\n")
         .map((token) => {
           const sanitized = SecurityUtils.sanitizeInput(token.trim())
-          console.log("[v0] Processing input token:", sanitized.substring(0, 50) + "...")
-
           return sanitized
         })
         .filter((token) => {
           const isValid = token.length > 0 && SecurityUtils.validateSteamToken(token)
-          console.log("[v0] Token validation result:", isValid, "for token:", token.substring(0, 30) + "...")
           return isValid
         })
-
-      console.log("[v0] Total valid tokens to process:", tokenList.length)
 
       if (tokenList.length === 0) {
         setError("No valid tokens found. Please check your token format.")
@@ -328,7 +283,6 @@ export default function SteamCheckerPage() {
       setSuccess(`Successfully checked ${results.accounts.length} accounts!`)
       setTimeout(() => setSuccess(""), 5000)
     } catch (err) {
-      console.log("[v0] Error during account checking:", err)
       setError(err instanceof Error ? err.message : "An error occurred while checking accounts")
     } finally {
       setIsChecking(false)
@@ -350,6 +304,7 @@ export default function SteamCheckerPage() {
       "VAC Count",
       "Community Banned",
       "Economy Banned",
+      "Game Bans",
       "Account Created",
       "Last Online",
       "JWT Expires",
@@ -366,6 +321,7 @@ export default function SteamCheckerPage() {
       account.vacCount,
       account.communityBanned ? "Yes" : "No",
       account.economyBanned,
+      account.gameBans || 0,
       account.accountCreated,
       account.lastOnline,
       account.expires,
