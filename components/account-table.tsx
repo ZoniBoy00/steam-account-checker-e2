@@ -5,7 +5,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ExternalLink, Search, Filter, ArrowUpDown, Copy, CheckCircle2, User, Package, DollarSign } from "lucide-react"
+import {
+  ExternalLink,
+  Search,
+  Filter,
+  ArrowUpDown,
+  Copy,
+  CheckCircle2,
+  User,
+  Package,
+  DollarSign,
+  AlertTriangle,
+  Info,
+  Key,
+} from "lucide-react"
 import type { SteamAccount } from "@/lib/types"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -150,110 +163,155 @@ export function AccountTable({ accounts }: AccountTableProps) {
     [],
   )
 
-  const getInventoryDisplay = (inventory: any) => {
-    if (!inventory) {
-      return (
-        <div className="flex items-center gap-2 text-slate-500">
-          <Package className="h-3 w-3" />
-          <span className="text-xs">Not checked</span>
-        </div>
-      )
-    }
-
-    if (inventory.requiresAuth) {
-      return (
-        <div
-          className="flex items-center gap-2 text-blue-400 cursor-help"
-          title="Steam authentication required to access inventory data. Use the Steam Authentication section to login."
-        >
-          <Package className="h-3 w-3" />
-          <span className="text-xs">Login Required</span>
-        </div>
-      )
-    }
-
-    if (inventory.isPrivate === true || inventory.error === "Private inventory") {
-      return (
-        <div className="flex items-center gap-2 text-yellow-400">
-          <Package className="h-3 w-3" />
-          <span className="text-xs">Private</span>
-        </div>
-      )
-    }
-
-    if (inventory.isPrivate === null && inventory.error?.includes("may be private or require authentication")) {
-      return (
-        <div
-          className="flex items-center gap-2 text-orange-400 cursor-help"
-          title="Unable to determine if inventory is private or public - Steam authentication may be required"
-        >
-          <Package className="h-3 w-3" />
-          <span className="text-xs">Auth Needed</span>
-        </div>
-      )
-    }
-
-    if (inventory.error) {
-      if (
-        inventory.error.includes("temporarily unavailable") ||
-        inventory.error.includes("HTTP 403") ||
-        inventory.error.includes("HTTP 400") ||
-        inventory.error.includes("Steam inventory API is currently blocked") ||
-        inventory.error.includes("API Blocked")
-      ) {
+  const getInventoryDisplay = useMemo(
+    () => (inventory: any) => {
+      if (!inventory) {
         return (
-          <div
-            className="flex items-center gap-2 text-orange-400 cursor-help"
-            title="Steam's inventory API is blocking requests. Try logging in with Steam authentication to access inventory data."
-          >
+          <div className="flex items-center gap-2 text-slate-500">
             <Package className="h-3 w-3" />
-            <span className="text-xs">API Blocked</span>
+            <span className="text-xs">Not checked</span>
           </div>
         )
       }
-      return (
-        <div className="flex items-center gap-2 text-red-400" title={inventory.error}>
-          <Package className="h-3 w-3" />
-          <span className="text-xs">Error</span>
-        </div>
-      )
-    }
 
-    // Show inventory data if we have valid item count or value
-    if (inventory.itemCount > 0 || inventory.inventoryValue > 0) {
-      return (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-green-400">
-            <Package className="h-3 w-3" />
-            <span className="text-xs font-medium">{inventory.itemCount} items</span>
-          </div>
-          {inventory.inventoryValue > 0 && (
-            <div className="flex items-center gap-1 text-orange-400">
-              <DollarSign className="h-3 w-3" />
-              <span className="text-xs font-medium">${inventory.inventoryValue.toFixed(2)}</span>
+      if (inventory.error) {
+        // Handle authentication required
+        if (inventory.requiresAuth || inventory.error.includes("Steam authentication required")) {
+          return (
+            <div
+              className="flex items-center gap-2 text-blue-400 cursor-help"
+              title="Steam authentication required to access inventory data. Use the Steam Authentication section in Settings to login."
+            >
+              <Key className="h-3 w-3" />
+              <span className="text-xs">Login Required</span>
             </div>
-          )}
-        </div>
-      )
-    }
+          )
+        }
 
-    // If we have inventory data but no items, show empty inventory
-    if (inventory.itemCount === 0 && inventory.inventoryValue === 0 && !inventory.error) {
+        // Handle private inventory
+        if (inventory.isPrivate === true || inventory.error === "Private inventory") {
+          return (
+            <div
+              className="flex items-center gap-2 text-yellow-400 cursor-help"
+              title="This user's inventory is set to private and cannot be accessed"
+            >
+              <Package className="h-3 w-3" />
+              <span className="text-xs">Private</span>
+            </div>
+          )
+        }
+
+        // Handle API key suggestions
+        if (inventory.suggestion && inventory.suggestion.includes("Steam Web API key")) {
+          return (
+            <div
+              className="flex items-center gap-2 text-orange-400 cursor-help"
+              title="Unable to access inventory. Try adding a Steam Web API key in Settings for better reliability."
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span className="text-xs">API Key Needed</span>
+            </div>
+          )
+        }
+
+        // Handle API blocked/rate limited
+        if (
+          inventory.error.includes("temporarily unavailable") ||
+          inventory.error.includes("HTTP 403") ||
+          inventory.error.includes("HTTP 400") ||
+          inventory.error.includes("Steam inventory API is currently blocked") ||
+          inventory.error.includes("API blocked") ||
+          inventory.error.includes("Unable to access inventory")
+        ) {
+          return (
+            <div
+              className="flex items-center gap-2 text-orange-400 cursor-help"
+              title="Steam's inventory API is blocking requests. Try logging in with Steam authentication or adding an API key in Settings."
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span className="text-xs">API Blocked</span>
+            </div>
+          )
+        }
+
+        // Handle timeout errors
+        if (inventory.error.includes("timeout") || inventory.error.includes("Connection timeout")) {
+          return (
+            <div
+              className="flex items-center gap-2 text-red-400 cursor-help"
+              title="Request timed out while trying to fetch inventory data"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span className="text-xs">Timeout</span>
+            </div>
+          )
+        }
+
+        // Handle rate limiting
+        if (inventory.error.includes("Rate limit") || inventory.error.includes("429")) {
+          return (
+            <div
+              className="flex items-center gap-2 text-yellow-400 cursor-help"
+              title="Rate limited by Steam API. Please wait before checking more inventories."
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span className="text-xs">Rate Limited</span>
+            </div>
+          )
+        }
+
+        // Generic error fallback
+        return (
+          <div className="flex items-center gap-2 text-red-400 cursor-help" title={`Error: ${inventory.error}`}>
+            <AlertTriangle className="h-3 w-3" />
+            <span className="text-xs">Error</span>
+          </div>
+        )
+      }
+
+      // Show inventory data if we have valid item count or value
+      if (inventory.itemCount > 0 || inventory.inventoryValue > 0) {
+        return (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-green-400">
+              <Package className="h-3 w-3" />
+              <span className="text-xs font-medium">{inventory.itemCount} items</span>
+            </div>
+            {inventory.inventoryValue > 0 && (
+              <div className="flex items-center gap-1 text-orange-400">
+                <DollarSign className="h-3 w-3" />
+                <span className="text-xs font-medium">${inventory.inventoryValue.toFixed(2)}</span>
+              </div>
+            )}
+            {inventory.method && (
+              <div className="flex items-center gap-1 text-slate-500">
+                <Info className="h-2 w-2" />
+                <span className="text-xs">{inventory.method}</span>
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      // If we have inventory data but no items, show empty inventory
+      if (inventory.itemCount === 0 && inventory.inventoryValue === 0 && !inventory.error) {
+        return (
+          <div className="flex items-center gap-2 text-slate-400">
+            <Package className="h-3 w-3" />
+            <span className="text-xs">Empty</span>
+          </div>
+        )
+      }
+
       return (
-        <div className="flex items-center gap-2 text-slate-400">
+        <div className="flex items-center gap-2 text-slate-500">
           <Package className="h-3 w-3" />
-          <span className="text-xs">Empty</span>
+          <span className="text-xs">Unknown</span>
         </div>
       )
-    }
-
-    return (
-      <div className="flex items-center gap-2 text-slate-500">
-        <Package className="h-3 w-3" />
-        <span className="text-xs">Unknown</span>
-      </div>
-    )
-  }
+    },
+    [],
+  )
 
   const getRealNameDisplay = (realName: string) => {
     if (

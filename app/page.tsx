@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -16,19 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Shield,
-  Users,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Download,
-  FileText,
-  Settings,
-  Scale,
-  Lock,
-  Github,
-} from "lucide-react"
+import { Shield, Users, CheckCircle, XCircle, Download, FileText, Settings, Scale, Lock, Github } from "lucide-react"
 import { AccountTable } from "@/components/account-table"
 import { StatsCards } from "@/components/stats-cards"
 import { TokenInput } from "@/components/token-input"
@@ -38,6 +25,7 @@ import { HelpModal } from "@/components/help-modal"
 import { SteamLogin } from "@/components/steam-login"
 import { checkSteamAccounts } from "@/lib/steam-checker"
 import { SecurityUtils } from "@/lib/security"
+import { useToast } from "@/hooks/use-toast"
 import type { SteamAccount, CheckStats } from "@/lib/types"
 
 export default function SteamCheckerPage() {
@@ -56,11 +44,11 @@ export default function SteamCheckerPage() {
   const [isChecking, setIsChecking] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentAccount, setCurrentAccount] = useState(0)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const [checkInventory, setCheckInventory] = useState(false)
   const [steamAuthenticated, setSteamAuthenticated] = useState(false)
   const [authenticatedSteamId, setAuthenticatedSteamId] = useState<string | null>(null)
+  const { toast } = useToast()
+  const [error, setError] = useState("") // Declare setError variable
 
   const tokenCount = useMemo(() => {
     return tokens.split("\n").filter((t) => t.trim()).length
@@ -99,24 +87,53 @@ export default function SteamCheckerPage() {
     localStorage.setItem("check_inventory", checkInventory.toString())
   }, [checkInventory])
 
+  const showError = (message: string, title?: string) => {
+    toast({
+      variant: "destructive",
+      title: title || "Error",
+      description: message,
+    })
+  }
+
+  const showSuccess = (message: string, title?: string) => {
+    toast({
+      variant: "success",
+      title: title || "Success",
+      description: message,
+    })
+  }
+
+  const showWarning = (message: string, title?: string) => {
+    toast({
+      variant: "warning",
+      title: title || "Warning",
+      description: message,
+    })
+  }
+
+  const showInfo = (message: string, title?: string) => {
+    toast({
+      variant: "info",
+      title: title || "Info",
+      description: message,
+    })
+  }
+
   const saveApiKey = useCallback(() => {
     const sanitizedKey = SecurityUtils.sanitizeInput(apiKey.trim())
     if (sanitizedKey && SecurityUtils.validateApiKey(sanitizedKey)) {
       const encryptedKey = SecurityUtils.encryptForStorage(sanitizedKey)
       localStorage.setItem("steam_api_key", encryptedKey)
-      setSuccess("Steam API key saved successfully!")
-      setTimeout(() => setSuccess(""), 3000)
+      showSuccess("Steam API key saved successfully!")
     } else {
-      setError("Invalid Steam API key format. Please check your key.")
-      setTimeout(() => setError(""), 3000)
+      showError("Invalid Steam API key format. Please check your key.", "Invalid API Key")
     }
   }, [apiKey])
 
   const clearApiKey = useCallback(() => {
     localStorage.removeItem("steam_api_key")
     setApiKey("")
-    setSuccess("Steam API key cleared!")
-    setTimeout(() => setSuccess(""), 3000)
+    showSuccess("Steam API key cleared!")
   }, [])
 
   const handleFileUpload = useCallback(
@@ -129,8 +146,7 @@ export default function SteamCheckerPage() {
       event.target.value = ""
 
       if (file.size > 5 * 1024 * 1024) {
-        setError("File too large. Maximum size is 5MB.")
-        setTimeout(() => setError(""), 3000)
+        showError("File too large. Maximum size is 5MB.", "File Upload Error")
         return
       }
 
@@ -145,8 +161,10 @@ export default function SteamCheckerPage() {
         file.type === "application/octet-stream"
 
       if (!isValidExtension && !isValidMimeType) {
-        setError(`Invalid file type. Please upload a text file (.txt, .csv, .log). File: ${file.name}`)
-        setTimeout(() => setError(""), 5000)
+        showError(
+          `Invalid file type. Please upload a text file (.txt, .csv, .log). File: ${file.name}`,
+          "Invalid File Type",
+        )
         return
       }
 
@@ -154,15 +172,13 @@ export default function SteamCheckerPage() {
       reader.onload = (e) => {
         const content = e.target?.result as string
         if (!content) {
-          setError("File appears to be empty or unreadable.")
-          setTimeout(() => setError(""), 3000)
+          showError("File appears to be empty or unreadable.", "File Read Error")
           return
         }
 
         const validation = SecurityUtils.validateFileContent(content)
         if (!validation.valid) {
-          setError(validation.error || "Invalid file content")
-          setTimeout(() => setError(""), 3000)
+          showError(validation.error || "Invalid file content", "File Validation Error")
           return
         }
 
@@ -181,8 +197,10 @@ export default function SteamCheckerPage() {
         }
 
         if (parsedTokens.length === 0) {
-          setError("No valid tokens found in file. Expected format: 'username----token' or just tokens.")
-          setTimeout(() => setError(""), 5000)
+          showError(
+            "No valid tokens found in file. Expected format: 'username----token' or just tokens.",
+            "No Valid Tokens",
+          )
           return
         }
 
@@ -196,13 +214,11 @@ export default function SteamCheckerPage() {
           : sanitizedTokens.join("\n")
 
         setTokens(newTokens)
-        setSuccess(`Successfully imported ${sanitizedTokens.length} tokens from ${file.name}`)
-        setTimeout(() => setSuccess(""), 3000)
+        showSuccess(`Successfully imported ${sanitizedTokens.length} tokens from ${file.name}`, "File Import Success")
       }
 
       reader.onerror = () => {
-        setError("Failed to read file. Please try again.")
-        setTimeout(() => setError(""), 3000)
+        showError("Failed to read file. Please try again.", "File Read Error")
       }
 
       reader.readAsText(file)
@@ -212,8 +228,7 @@ export default function SteamCheckerPage() {
 
   const clearTokens = useCallback(() => {
     setTokens("")
-    setSuccess("All tokens cleared!")
-    setTimeout(() => setSuccess(""), 3000)
+    showSuccess("All tokens cleared!")
   }, [])
 
   const exportTokens = useCallback(() => {
@@ -229,19 +244,18 @@ export default function SteamCheckerPage() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    setSuccess(`Exported ${tokenCount} tokens to file`)
-    setTimeout(() => setSuccess(""), 3000)
+    showSuccess(`Exported ${tokenCount} tokens to file`, "Export Complete")
   }, [tokens, tokenCount])
 
   const handleCheck = useCallback(async () => {
     if (!canCheck) {
-      setError("Please enter tokens and configure your Steam API key")
+      showError("Please enter tokens and configure your Steam API key", "Missing Configuration")
       return
     }
 
     const sanitizedApiKey = SecurityUtils.sanitizeInput(apiKey.trim())
     if (!SecurityUtils.validateApiKey(sanitizedApiKey)) {
-      setError("Invalid Steam API key format")
+      showError("Invalid Steam API key format", "Invalid API Key")
       return
     }
 
@@ -250,6 +264,8 @@ export default function SteamCheckerPage() {
     setProgress(0)
     setCurrentAccount(0)
     setAccounts([])
+
+    showInfo("Starting Steam account validation...", "Check Started")
 
     try {
       const tokenList = tokens
@@ -264,7 +280,7 @@ export default function SteamCheckerPage() {
         })
 
       if (tokenList.length === 0) {
-        setError("No valid tokens found. Please check your token format.")
+        showError("No valid tokens found. Please check your token format.", "No Valid Tokens")
         return
       }
 
@@ -280,10 +296,25 @@ export default function SteamCheckerPage() {
 
       setAccounts(results.accounts)
       setStats(results.stats)
-      setSuccess(`Successfully checked ${results.accounts.length} accounts!`)
-      setTimeout(() => setSuccess(""), 5000)
+
+      const validAccounts = results.stats.valid
+      const bannedAccounts = results.stats.vac_banned + results.stats.community_banned
+
+      showSuccess(
+        `Found ${validAccounts} valid accounts${bannedAccounts > 0 ? `, ${bannedAccounts} with bans` : ""}`,
+        "Check Complete",
+      )
+
+      if (results.stats.expired > 0) {
+        showWarning(`${results.stats.expired} tokens have expired and need renewal`, "Expired Tokens")
+      }
+
+      if (results.stats.invalid > 0) {
+        showWarning(`${results.stats.invalid} tokens are invalid or malformed`, "Invalid Tokens")
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred while checking accounts")
+      const errorMessage = err instanceof Error ? err.message : "An error occurred while checking accounts"
+      showError(errorMessage, "Check Failed")
     } finally {
       setIsChecking(false)
       setProgress(0)
@@ -340,8 +371,7 @@ export default function SteamCheckerPage() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    setSuccess(`Exported ${accounts.length} accounts to CSV`)
-    setTimeout(() => setSuccess(""), 3000)
+    showSuccess(`Exported ${accounts.length} accounts to CSV`, "Export Complete")
   }, [accounts])
 
   const exportValidTokens = useCallback(() => {
@@ -354,8 +384,7 @@ export default function SteamCheckerPage() {
     )
 
     if (validAccounts.length === 0) {
-      setError("No valid tokens without gameplay-affecting bans to export")
-      setTimeout(() => setError(""), 3000)
+      showError("No valid tokens without gameplay-affecting bans to export", "No Clean Tokens")
       return
     }
 
@@ -374,8 +403,7 @@ export default function SteamCheckerPage() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    setSuccess(`Exported ${validAccounts.length} clean tokens (no gameplay bans) to file`)
-    setTimeout(() => setSuccess(""), 3000)
+    showSuccess(`Exported ${validAccounts.length} clean tokens (no gameplay bans) to file`, "Clean Tokens Exported")
   }, [accounts])
 
   const handleSteamAuthChange = useCallback((isAuthenticated: boolean, steamId?: string) => {
@@ -606,20 +634,6 @@ export default function SteamCheckerPage() {
             </Dialog>
           </div>
         </div>
-
-        {error && (
-          <Alert variant="destructive" className="mb-6 border-red-500/50 bg-red-500/10">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="mb-6 border-green-500/50 bg-green-500/10 text-green-400">
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        )}
 
         <Tabs defaultValue="checker" className="space-y-4 sm:space-y-6">
           <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-slate-700 h-auto">

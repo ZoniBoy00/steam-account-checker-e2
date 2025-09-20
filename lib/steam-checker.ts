@@ -176,20 +176,20 @@ async function processToken(
 }
 
 async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
-  const maxRetries = 2
+  const maxRetries = 3
   let lastError: Error | null = null
   const debugInfo: string[] = []
 
-  debugInfo.push(`Starting inventory check for Steam ID: ${steamId}`)
+  console.log(`[Inventory Debug] Starting Inventory check for Steam ID: ${steamId}`)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      debugInfo.push(`Attempt ${attempt + 1}/${maxRetries + 1}`)
+      console.log(`[Inventory Debug] Attempt ${attempt + 1}/${maxRetries + 1}`)
 
       const response = await fetch(`/api/steam/inventory?steamId=${steamId}`)
 
       if (response.status === 429) {
-        debugInfo.push(`Rate limited on attempt ${attempt + 1}`)
+        console.log(`[Inventory Debug] Rate limited on attempt ${attempt + 1}`)
         // Rate limited, wait and retry
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
@@ -198,19 +198,27 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
       }
 
       if (!response.ok) {
-        debugInfo.push(`HTTP ${response.status}: ${response.statusText}`)
+        console.log(`[Inventory Debug] HTTP ${response.status}: ${response.statusText}`)
         throw new Error(`Inventory API request failed: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
-      debugInfo.push(`Response received: ${JSON.stringify(data).substring(0, 200)}...`)
+      console.log(`[Inventory Debug] Response received:`, {
+        error: data.error,
+        inventoryValue: data.inventoryValue,
+        itemCount: data.itemCount,
+        isPrivate: data.isPrivate,
+        method: data.method,
+        requiresAuth: data.requiresAuth,
+        suggestion: data.suggestion,
+      })
 
       if (data.error) {
-        debugInfo.push(`API returned error: ${data.error}`)
+        console.log(`[Inventory Debug] API returned error: ${data.error}`)
 
         // Check if it's a private inventory
         if (data.isPrivate) {
-          console.log(`[Inventory Debug] ${debugInfo.join(" | ")}`)
+          console.log(`[Inventory Debug] Private inventory detected`)
           return {
             inventoryValue: 0,
             itemCount: 0,
@@ -221,7 +229,7 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
 
         // Check if authentication is required
         if (data.requiresAuth) {
-          console.log(`[Inventory Debug] ${debugInfo.join(" | ")}`)
+          console.log(`[Inventory Debug] Steam authentication required`)
           return {
             inventoryValue: 0,
             itemCount: 0,
@@ -229,22 +237,34 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
             error: "Steam authentication required",
           }
         }
+
+        // Check for API key suggestion
+        if (data.suggestion) {
+          console.log(`[Inventory Debug] API suggestion: ${data.suggestion}`)
+          return {
+            inventoryValue: 0,
+            itemCount: 0,
+            isPrivate: false,
+            error: data.error,
+            suggestion: data.suggestion,
+          }
+        }
       }
 
-      debugInfo.push(
-        `Success: Value=${data.inventoryValue}, Items=${data.itemCount}, Method=${data.method || "Unknown"}`,
+      console.log(
+        `[Inventory Debug] Success: Value=${data.inventoryValue}, Items=${data.itemCount}, Method=${data.method || "Unknown"}`,
       )
-      console.log(`[Inventory Debug] ${debugInfo.join(" | ")}`)
 
       return {
         inventoryValue: data.inventoryValue || 0,
         itemCount: data.itemCount || 0,
         isPrivate: data.isPrivate || false,
         error: data.error || null,
+        method: data.method,
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("Unknown error")
-      debugInfo.push(`Error on attempt ${attempt + 1}: ${lastError.message}`)
+      console.log(`[Inventory Debug] Error on attempt ${attempt + 1}: ${lastError.message}`)
 
       if (attempt < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
@@ -253,8 +273,7 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
     }
   }
 
-  debugInfo.push(`All attempts failed. Last error: ${lastError?.message}`)
-  console.log(`[Inventory Debug] ${debugInfo.join(" | ")}`)
+  console.log(`[Inventory Debug] All attempts failed. Last error: ${lastError?.message}`)
 
   return {
     inventoryValue: 0,
