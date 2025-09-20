@@ -78,7 +78,7 @@ export function SteamLogin({ onAuthChange }: SteamLoginProps) {
         onAuthChange?.(data.authenticated, data.steamId)
       }
     } catch (error) {
-      console.log("[v0] Error checking auth status:", error)
+      console.error("Error checking auth status:", error)
     }
   }
 
@@ -92,7 +92,7 @@ export function SteamLogin({ onAuthChange }: SteamLoginProps) {
         }
       }
     } catch (error) {
-      console.log("[v0] Error fetching Steam profile:", error)
+      console.error("Error fetching Steam profile:", error)
     }
   }
 
@@ -138,7 +138,7 @@ export function SteamLogin({ onAuthChange }: SteamLoginProps) {
         setTimeout(() => setAuthMessage(null), 3000)
       }
     } catch (error) {
-      console.log("[v0] Error during logout:", error)
+      console.error("Error during logout:", error)
       setAuthMessage("Error during logout. Please try again.")
       setTimeout(() => setAuthMessage(null), 3000)
     } finally {

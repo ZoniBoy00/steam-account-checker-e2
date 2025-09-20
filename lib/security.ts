@@ -23,12 +23,10 @@ export class SecurityUtils {
 
   static validateSteamToken(token: string): boolean {
     if (!token || typeof token !== "string") {
-      console.log("[v0] Token validation failed: empty or invalid token")
       return false
     }
 
     const sanitizedToken = this.sanitizeInput(token)
-    console.log("[v0] Validating token:", sanitizedToken.substring(0, 50) + "...")
 
     // Extract JWT part if it's in username----JWT format
     let jwtPart = sanitizedToken
@@ -36,7 +34,6 @@ export class SecurityUtils {
       const parts = sanitizedToken.split("----")
       if (parts.length >= 2) {
         jwtPart = parts[1].trim()
-        console.log("[v0] Extracted JWT from username----token format")
       }
     }
 
@@ -46,7 +43,6 @@ export class SecurityUtils {
       // Check if it looks like a JWT (starts with eyJ which is base64 for {"typ":"JWT" or similar)
       const headerPart = jwtParts[0]
       if (headerPart.startsWith("eyJ") || headerPart.startsWith("eyA")) {
-        console.log("[v0] Token appears to be valid JWT format")
         return true
       }
     }
@@ -54,11 +50,9 @@ export class SecurityUtils {
     // Check for cookie format
     const cookieRegex = /^steamLoginSecure=[0-9%]+\|\|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
     if (cookieRegex.test(sanitizedToken)) {
-      console.log("[v0] Token appears to be valid cookie format")
       return true
     }
 
-    console.log("[v0] Token validation failed: no valid format found")
     return false
   }
 

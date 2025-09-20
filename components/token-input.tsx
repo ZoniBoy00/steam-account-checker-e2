@@ -65,8 +65,6 @@ export function TokenInput({
   }
 
   const handleSecureFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("[v0] TokenInput file upload triggered")
-
     // Clear any existing validation errors
     if (validationError) {
       setValidationError("")
@@ -77,12 +75,9 @@ export function TokenInput({
   }
 
   const triggerFileUpload = () => {
-    console.log("[v0] Triggering file upload click")
     const fileInput = document.getElementById("file-upload") as HTMLInputElement
     if (fileInput) {
       fileInput.click()
-    } else {
-      console.log("[v0] File input element not found")
     }
   }
 

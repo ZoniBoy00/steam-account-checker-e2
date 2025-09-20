@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
-  console.log("[v0] Steam logout requested")
-
   const response = NextResponse.json({ success: true })
 
   // Clear the Steam authentication cookie
