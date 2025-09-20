@@ -238,6 +238,8 @@ export async function GET(request: NextRequest) {
               success: data.response?.success,
               itemCount: data.response?.items?.length || 0,
               descriptionCount: data.response?.descriptions?.length || 0,
+              errorMessage: data.error_message,
+              fullResponseKeys: Object.keys(data),
             })
 
             if (data.response && data.response.success === 1) {
@@ -270,9 +272,10 @@ export async function GET(request: NextRequest) {
               console.log(`[Inventory API] Steam Web API unexpected response:`, {
                 success: data.response?.success,
                 error: data.error,
+                errorMessage: data.error_message,
                 fullResponse: JSON.stringify(data).substring(0, 500),
               })
-              lastError = data.error || `Steam Web API returned success=${data.response?.success}`
+              lastError = data.error_message || data.error || `Steam Web API returned success=${data.response?.success}`
               continue
             }
           } else {
@@ -399,6 +402,7 @@ export async function GET(request: NextRequest) {
             inventoryValue: 0,
             itemCount: 0,
             isPrivate: null,
+            method: "failed",
             suggestion: "Add a Steam Web API key in settings for improved access",
           },
           {
@@ -415,6 +419,7 @@ export async function GET(request: NextRequest) {
             inventoryValue: 0,
             itemCount: 0,
             isPrivate: null,
+            method: "failed",
             requiresAuth: true,
           },
           {
@@ -433,6 +438,7 @@ export async function GET(request: NextRequest) {
         inventoryValue: 0,
         itemCount: 0,
         isPrivate: false,
+        method: "failed",
         suggestion: "Add a Steam Web API key in settings for better reliability",
       },
       {

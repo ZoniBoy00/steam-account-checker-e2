@@ -28,6 +28,12 @@ export function NotificationCenter({ notifications, onMarkAsRead, onDelete, onCl
   const [isOpen, setIsOpen] = useState(false)
   const unreadCount = notifications.filter((n) => !n.read).length
 
+  console.log("[v0] NotificationCenter render:", {
+    notificationCount: notifications.length,
+    unreadCount,
+    isOpen,
+  })
+
   const getIcon = (variant: string) => {
     switch (variant) {
       case "success":
@@ -71,10 +77,25 @@ export function NotificationCenter({ notifications, onMarkAsRead, onDelete, onCl
     return `${days}d ago`
   }
 
+  const handleTriggerClick = () => {
+    console.log("[v0] Notification bell clicked, current isOpen:", isOpen)
+    setIsOpen(!isOpen)
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    console.log("[v0] Popover open state changed to:", open)
+    setIsOpen(open)
+  }
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative text-slate-400 hover:text-slate-200">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="relative text-slate-400 hover:text-slate-200"
+          onClick={handleTriggerClick}
+        >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge
