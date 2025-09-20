@@ -136,17 +136,37 @@ export async function GET(request: NextRequest) {
         console.log("[v0] Steam API response status:", response.status)
 
         if (response.ok) {
-          const data = await response.json()
+          const responseText = await response.text()
+          console.log("[v0] Raw response length:", responseText.length)
+
+          // Improved handling of different response types
+          let data
+          try {
+            data = JSON.parse(responseText)
+          } catch (parseError) {
+            console.log("[v0] Failed to parse JSON response, checking if it's HTML (private inventory)")
+            if (responseText.includes("This profile is private") || responseText.includes("inventory is private")) {
+              console.log("[v0] Detected private inventory from HTML response")
+              lastError = "Private inventory detected"
+              continue
+            }
+            throw new Error("Invalid JSON response")
+          }
+
           console.log("[v0] Inventory data structure:", Object.keys(data))
 
-          if (!data || data.success === false) {
-            console.log("[v0] API returned success: false or no data")
-            lastError = data?.Error || "No inventory data available"
+          if (data.success === false) {
+            console.log("[v0] API returned success: false, error:", data.Error)
+            if (data.Error && data.Error.includes("private")) {
+              lastError = "Private inventory"
+              continue
+            }
+            lastError = data.Error || "No inventory data available"
             continue
           }
 
-          if (!data || (!data.assets && !data.rgInventory && !data.items)) {
-            console.log("[v0] No inventory data found")
+          if (!data.assets && !data.rgInventory && !data.items) {
+            console.log("[v0] Empty inventory detected (not private)")
             clearTimeout(timeoutId)
             return NextResponse.json(
               {
@@ -224,16 +244,27 @@ export async function GET(request: NextRequest) {
             },
           )
         } else if (response.status === 403) {
-          console.log("[v0] 403 Forbidden - Could be private inventory or authentication required")
-          lastError = "403 Forbidden"
-          response = null // Continue to next endpoint
+          console.log("[v0] 403 Forbidden - Checking response content for privacy detection")
+          try {
+            const errorText = await response.text()
+            if (errorText.includes("private") || errorText.includes("Private")) {
+              console.log("[v0] Confirmed private inventory from 403 response")
+              lastError = "Private inventory"
+            } else {
+              console.log("[v0] 403 but not private inventory - likely API block")
+              lastError = "API blocked"
+            }
+          } catch {
+            lastError = "403 Forbidden"
+          }
+          response = null
         } else if (response.status === 400) {
           console.log("[v0] 400 Bad Request - Authentication or parameter issue")
           lastError = "400 Bad Request"
-          response = null // Continue to next endpoint
+          response = null
         } else {
           lastError = `HTTP ${response.status}`
-          response = null // Reset for next attempt
+          response = null
         }
       } catch (error) {
         console.log("[v0] Error with Steam endpoint:", inventoryUrl, error)
@@ -246,14 +277,31 @@ export async function GET(request: NextRequest) {
 
     console.log("[v0] All inventory endpoints failed, last error:", lastError)
 
-    if (lastError.includes("403") || lastError.includes("400")) {
+    if (lastError.includes("Private inventory") || lastError.includes("private")) {
+      return NextResponse.json(
+        {
+          error: "This inventory is set to private",
+          inventoryValue: 0,
+          itemCount: 0,
+          isPrivate: true,
+        },
+        {
+          status: 200,
+          headers: {
+            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+          },
+        },
+      )
+    }
+
+    if (lastError.includes("403") || lastError.includes("400") || lastError.includes("API blocked")) {
       if (isAuthenticated) {
         return NextResponse.json(
           {
-            error: "Unable to access inventory - may be private or authentication expired",
+            error: "Unable to access inventory - authentication may have expired or inventory may be private",
             inventoryValue: 0,
             itemCount: 0,
-            isPrivate: true,
+            isPrivate: null, // Unknown privacy status
           },
           {
             status: 200,
