@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams
   const steamId = searchParams.get("steamId")
+  const apiKey = searchParams.get("apiKey")
 
   if (!steamId) {
     return NextResponse.json({ error: "Steam ID is required" }, { status: 400 })
@@ -92,16 +93,35 @@ export async function GET(request: NextRequest) {
       controller.abort()
     }, 15000) // 15 seconds timeout
 
-    const inventoryUrls = [
-      `https://steamcommunity.com/inventory/${sanitizedSteamId}/${CS2_APP_ID}/2?l=english&count=5000`,
-      `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/json/${CS2_APP_ID}/2?l=english&count=5000`,
+    const inventoryMethods = [
+      // Method 1: Steam Web API (requires API key but most reliable)
+      ...(apiKey
+        ? [
+            {
+              url: `https://api.steampowered.com/IEconService/GetInventoryItemsWithDescriptions/v1/?key=${apiKey}&steamid=${sanitizedSteamId}&appid=${CS2_APP_ID}&contextid=2&count=5000`,
+              type: "webapi" as const,
+            },
+          ]
+        : []),
+
+      // Method 2: Community inventory JSON endpoint (new format)
+      {
+        url: `https://steamcommunity.com/inventory/${sanitizedSteamId}/${CS2_APP_ID}/2?l=english&count=5000`,
+        type: "community_new" as const,
+      },
+
+      // Method 3: Community inventory JSON endpoint (legacy format)
+      {
+        url: `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/json/${CS2_APP_ID}/2?l=english&count=5000`,
+        type: "community_legacy" as const,
+      },
     ]
 
     let response: Response | null = null
     let lastError = ""
 
-    for (const inventoryUrl of inventoryUrls) {
-      console.log("[v0] Attempting to fetch inventory from Steam:", inventoryUrl)
+    for (const method of inventoryMethods) {
+      console.log(`[v0] Attempting ${method.type} inventory fetch:`, method.url)
 
       try {
         const headers: Record<string, string> = {
@@ -112,40 +132,43 @@ export async function GET(request: NextRequest) {
           "Accept-Encoding": "gzip, deflate, br",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-origin",
-          Referer: `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/`,
-          Origin: "https://steamcommunity.com",
         }
 
-        // Add Steam authentication cookie if available
-        if (isAuthenticated && steamAuth?.value) {
+        // Add Steam authentication for community endpoints
+        if (method.type.startsWith("community") && isAuthenticated && steamAuth?.value) {
           headers["Cookie"] = `steamLoginSecure=${steamAuth.value}`
-          console.log("[v0] Using Steam authentication cookie for inventory request")
+          headers["Referer"] = `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/`
+          headers["Origin"] = "https://steamcommunity.com"
+          headers["Sec-Fetch-Dest"] = "empty"
+          headers["Sec-Fetch-Mode"] = "cors"
+          headers["Sec-Fetch-Site"] = "same-origin"
+          console.log("[v0] Using Steam authentication cookie for community request")
         }
 
         response = await Promise.race([
-          fetch(inventoryUrl, {
+          fetch(method.url, {
             headers,
             signal: controller.signal,
           }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 8000)),
         ])
 
-        console.log("[v0] Steam API response status:", response.status)
+        console.log(`[v0] ${method.type} response status:`, response.status)
 
         if (response.ok) {
           const responseText = await response.text()
           console.log("[v0] Raw response length:", responseText.length)
 
-          // Improved handling of different response types
           let data
           try {
             data = JSON.parse(responseText)
           } catch (parseError) {
-            console.log("[v0] Failed to parse JSON response, checking if it's HTML (private inventory)")
-            if (responseText.includes("This profile is private") || responseText.includes("inventory is private")) {
+            console.log("[v0] Failed to parse JSON response, checking if it's HTML")
+            if (
+              responseText.includes("This profile is private") ||
+              responseText.includes("inventory is private") ||
+              responseText.includes("This inventory is currently private")
+            ) {
               console.log("[v0] Detected private inventory from HTML response")
               lastError = "Private inventory detected"
               continue
@@ -155,96 +178,100 @@ export async function GET(request: NextRequest) {
 
           console.log("[v0] Inventory data structure:", Object.keys(data))
 
-          if (data.success === false) {
-            console.log("[v0] API returned success: false, error:", data.Error)
-            if (data.Error && data.Error.includes("private")) {
+          if (method.type === "webapi") {
+            // Steam Web API format
+            if (data.response && data.response.success === 1) {
+              const items = data.response.items || []
+              const descriptions = data.response.descriptions || []
+
+              clearTimeout(timeoutId)
+              return NextResponse.json(
+                {
+                  inventoryValue: calculateInventoryValue(items, descriptions),
+                  itemCount: items.length,
+                  isPrivate: false,
+                  error: null,
+                  method: "Steam Web API",
+                },
+                {
+                  headers: {
+                    "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+                    "Cache-Control": "private, no-cache",
+                  },
+                },
+              )
+            } else if (data.response && data.response.success === 15) {
+              // Private inventory
               lastError = "Private inventory"
               continue
             }
-            lastError = data.Error || "No inventory data available"
-            continue
-          }
+          } else {
+            // Community API format
+            if (data.success === false) {
+              console.log("[v0] Community API returned success: false, error:", data.Error)
+              if (data.Error && (data.Error.includes("private") || data.Error.includes("Private"))) {
+                lastError = "Private inventory"
+                continue
+              }
+              lastError = data.Error || "No inventory data available"
+              continue
+            }
 
-          if (!data.assets && !data.rgInventory && !data.items) {
-            console.log("[v0] Empty inventory detected (not private)")
+            if (!data.assets && !data.rgInventory && !data.items) {
+              console.log("[v0] Empty inventory detected (not private)")
+              clearTimeout(timeoutId)
+              return NextResponse.json(
+                {
+                  inventoryValue: 0,
+                  itemCount: 0,
+                  isPrivate: false,
+                  error: null,
+                  method: method.type,
+                },
+                {
+                  headers: {
+                    "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+                  },
+                },
+              )
+            }
+
+            let assets = data.assets || data.items || []
+            let descriptions = data.descriptions || []
+
+            // Legacy format support
+            if (data.rgInventory && data.rgDescriptions) {
+              assets = Object.values(data.rgInventory)
+              descriptions = Object.values(data.rgDescriptions)
+            }
+
+            if (!Array.isArray(assets)) {
+              console.log("[v0] Assets is not an array, converting...")
+              assets = Object.values(assets)
+            }
+
+            const itemCount = assets.length
+            console.log("[v0] Found", itemCount, "items in inventory")
+
             clearTimeout(timeoutId)
             return NextResponse.json(
               {
-                inventoryValue: 0,
-                itemCount: 0,
+                inventoryValue: calculateInventoryValue(assets, descriptions),
+                itemCount,
                 isPrivate: false,
                 error: null,
+                method: method.type,
               },
               {
                 headers: {
                   "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+                  "Cache-Control": "private, no-cache",
                 },
               },
             )
           }
-
-          let assets = data.assets || data.items || []
-          let descriptions = data.descriptions || []
-
-          // Legacy format support
-          if (data.rgInventory && data.rgDescriptions) {
-            assets = Object.values(data.rgInventory)
-            descriptions = Object.values(data.rgDescriptions)
-          }
-
-          if (!Array.isArray(assets)) {
-            console.log("[v0] Assets is not an array, converting...")
-            assets = Object.values(assets)
-          }
-
-          const itemCount = assets.length
-          console.log("[v0] Found", itemCount, "items in inventory")
-
-          const rarityMultipliers: Record<string, number> = {
-            "Consumer Grade": 0.1,
-            "Industrial Grade": 0.5,
-            "Mil-Spec Grade": 2,
-            Restricted: 10,
-            Classified: 50,
-            Covert: 200,
-            Extraordinary: 1000,
-          }
-
-          let estimatedValue = 0
-
-          if (Array.isArray(descriptions)) {
-            for (const item of descriptions) {
-              const tags = item.tags || []
-              const rarityTag = tags.find((tag: any) => tag.category === "Rarity")
-              const typeTag = tags.find((tag: any) => tag.category === "Type")
-
-              if (rarityTag && typeTag) {
-                const rarity = rarityTag.localized_tag_name || rarityTag.name
-                const multiplier = rarityMultipliers[rarity] || 0.1
-
-                const itemAssets = assets.filter((asset: any) => asset.classid === item.classid)
-                estimatedValue += itemAssets.length * multiplier
-              }
-            }
-          }
-
-          clearTimeout(timeoutId)
-          return NextResponse.json(
-            {
-              inventoryValue: Math.round(estimatedValue * 100) / 100,
-              itemCount,
-              isPrivate: false,
-              error: null,
-            },
-            {
-              headers: {
-                "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-                "Cache-Control": "private, no-cache",
-              },
-            },
-          )
         } else if (response.status === 403) {
-          console.log("[v0] 403 Forbidden - Checking response content for privacy detection")
+          console.log("[v0] 403 Forbidden - Checking response content")
           try {
             const errorText = await response.text()
             if (errorText.includes("private") || errorText.includes("Private")) {
@@ -259,7 +286,7 @@ export async function GET(request: NextRequest) {
           }
           response = null
         } else if (response.status === 400) {
-          console.log("[v0] 400 Bad Request - Authentication or parameter issue")
+          console.log("[v0] 400 Bad Request")
           lastError = "400 Bad Request"
           response = null
         } else {
@@ -267,7 +294,7 @@ export async function GET(request: NextRequest) {
           response = null
         }
       } catch (error) {
-        console.log("[v0] Error with Steam endpoint:", inventoryUrl, error)
+        console.log(`[v0] Error with ${method.type} endpoint:`, error)
         lastError = error instanceof Error ? error.message : "Unknown error"
         response = null
       }
@@ -275,7 +302,7 @@ export async function GET(request: NextRequest) {
 
     clearTimeout(timeoutId)
 
-    console.log("[v0] All inventory endpoints failed, last error:", lastError)
+    console.log("[v0] All inventory methods failed, last error:", lastError)
 
     if (lastError.includes("Private inventory") || lastError.includes("private")) {
       return NextResponse.json(
@@ -298,10 +325,11 @@ export async function GET(request: NextRequest) {
       if (isAuthenticated) {
         return NextResponse.json(
           {
-            error: "Unable to access inventory - authentication may have expired or inventory may be private",
+            error: "Unable to access inventory. Try using a Steam Web API key for better reliability.",
             inventoryValue: 0,
             itemCount: 0,
-            isPrivate: null, // Unknown privacy status
+            isPrivate: null,
+            suggestion: "Add a Steam Web API key in settings for improved access",
           },
           {
             status: 200,
@@ -316,7 +344,7 @@ export async function GET(request: NextRequest) {
             error: "Steam authentication required to access inventory data",
             inventoryValue: 0,
             itemCount: 0,
-            isPrivate: null, // Unknown privacy status without auth
+            isPrivate: null,
             requiresAuth: true,
           },
           {
@@ -331,10 +359,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: "Steam inventory API is currently blocked. Inventory data unavailable.",
+        error: "Steam inventory temporarily unavailable. Try again later or use a Steam Web API key.",
         inventoryValue: 0,
         itemCount: 0,
         isPrivate: false,
+        suggestion: "Add a Steam Web API key in settings for better reliability",
       },
       {
         status: 200,
@@ -362,7 +391,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: "Steam inventory API is currently blocked. Inventory data unavailable.",
+        error: "Steam inventory temporarily unavailable. Try again later.",
         inventoryValue: 0,
         itemCount: 0,
         isPrivate: false,
@@ -375,4 +404,36 @@ export async function GET(request: NextRequest) {
       },
     )
   }
+}
+
+function calculateInventoryValue(assets: any[], descriptions: any[]): number {
+  const rarityMultipliers: Record<string, number> = {
+    "Consumer Grade": 0.1,
+    "Industrial Grade": 0.5,
+    "Mil-Spec Grade": 2,
+    Restricted: 10,
+    Classified: 50,
+    Covert: 200,
+    Extraordinary: 1000,
+  }
+
+  let estimatedValue = 0
+
+  if (Array.isArray(descriptions)) {
+    for (const item of descriptions) {
+      const tags = item.tags || []
+      const rarityTag = tags.find((tag: any) => tag.category === "Rarity")
+      const typeTag = tags.find((tag: any) => tag.category === "Type")
+
+      if (rarityTag && typeTag) {
+        const rarity = rarityTag.localized_tag_name || rarityTag.name
+        const multiplier = rarityMultipliers[rarity] || 0.1
+
+        const itemAssets = assets.filter((asset: any) => asset.classid === item.classid)
+        estimatedValue += itemAssets.length * multiplier
+      }
+    }
+  }
+
+  return Math.round(estimatedValue * 100) / 100
 }
