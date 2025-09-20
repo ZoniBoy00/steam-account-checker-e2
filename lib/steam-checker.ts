@@ -102,25 +102,8 @@ async function processToken(
   apiKey: string,
   checkInventory = false,
 ): Promise<SteamAccount> {
-  console.log(`[v0] Processing token ${accountNumber}:`, token.substring(0, 50) + "...")
-
   const tokenInfo = parseTokenFormat(token)
-  console.log("[v0] Token info parsed:", {
-    username: tokenInfo.username,
-    has_jwt: !!tokenInfo.jwt_token,
-    jwt_preview: tokenInfo.jwt_token?.substring(0, 30) + "...",
-  })
-
   const jwtValidation = tokenInfo.jwt_token ? validateJWTToken(tokenInfo.jwt_token) : null
-
-  if (jwtValidation) {
-    console.log("[v0] JWT validation result:", {
-      is_valid: jwtValidation.is_valid,
-      is_expired: jwtValidation.is_expired,
-      steam_id: jwtValidation.steam_id,
-      error: jwtValidation.error,
-    })
-  }
 
   // Extract Steam ID
   let steamId = ""
@@ -198,7 +181,6 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[v0] Fetching inventory for Steam ID: ${steamId}`)
       const response = await fetch(`/api/steam/inventory?steamId=${steamId}`)
 
       if (response.status === 429) {
@@ -214,12 +196,6 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
       }
 
       const data = await response.json()
-      console.log(`[v0] Inventory info received for ${steamId}:`, {
-        inventoryValue: data.inventoryValue,
-        itemCount: data.itemCount,
-        isPrivate: data.isPrivate,
-        error: data.error,
-      })
 
       return {
         inventoryValue: data.inventoryValue || 0,
@@ -306,8 +282,6 @@ function parseTokenFormat(tokenString: string): TokenInfo {
 }
 
 function validateJWTToken(jwtToken: string): JWTValidation | null {
-  console.log("[v0] Validating JWT token:", jwtToken.substring(0, 50) + "...")
-
   const validation: JWTValidation = {
     is_valid: false,
     is_expired: false,
@@ -323,7 +297,6 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
     const parts = jwtToken.split(".")
     if (parts.length !== 3) {
       validation.error = "Invalid JWT format - wrong number of parts"
-      console.log("[v0] JWT validation failed:", validation.error)
       return validation
     }
 
@@ -334,8 +307,6 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
       payloadPart += "="
     }
 
-    console.log("[v0] Decoding JWT payload part:", payloadPart.substring(0, 20) + "...")
-
     try {
       // Handle URL-safe base64
       const normalizedPayload = payloadPart.replace(/-/g, "+").replace(/_/g, "/")
@@ -345,8 +316,6 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
       try {
         payloadData = JSON.parse(payloadBytes)
       } catch (jsonError) {
-        console.log("[v0] Primary JSON parsing failed, attempting recovery:", jsonError)
-
         // Try to fix common JSON issues
         let fixedPayload = payloadBytes
 
@@ -365,10 +334,7 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
         // Try parsing the fixed payload
         try {
           payloadData = JSON.parse(fixedPayload)
-          console.log("[v0] JSON recovery successful")
         } catch (recoveryError) {
-          console.log("[v0] JSON recovery failed:", recoveryError)
-
           const subMatch = payloadBytes.match(/"sub":\s*"([^"]+)"/i)
           const expMatch = payloadBytes.match(/"exp":\s*(\d+)/i)
           const iatMatch = payloadBytes.match(/"iat":\s*(\d+)/i)
@@ -376,86 +342,57 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
           if (subMatch || expMatch) {
             payloadData = {}
             if (subMatch) {
-              // Clean and validate Steam ID
               let steamId = subMatch[1]
-              // Remove any non-digit characters except for the Steam ID prefix
               steamId = steamId.replace(/[^\d]/g, "")
 
-              // Ensure it starts with 7656119 and is 17 digits
               if (steamId.length >= 10) {
-                // If it doesn't start with 7656119, try to reconstruct it
                 if (!steamId.startsWith("7656119")) {
-                  // Extract the last 10 digits and prepend 7656119
                   const suffix = steamId.slice(-10)
                   steamId = "7656119" + suffix
                 }
-                // Ensure exactly 17 digits
                 if (steamId.length > 17) {
                   steamId = steamId.substring(0, 17)
                 } else if (steamId.length < 17 && steamId.startsWith("7656119")) {
-                  // Pad with zeros if needed
                   steamId = steamId.padEnd(17, "0")
                 }
               }
 
-              // Final validation - must be exactly 17 digits starting with 7656119
               if (/^7656119\d{10}$/.test(steamId)) {
                 payloadData.sub = steamId
-                console.log("[v0] Cleaned and validated Steam ID:", steamId)
               } else {
-                console.log("[v0] Could not extract valid Steam ID from:", subMatch[1])
+                validation.error = "Invalid Steam ID format in JWT"
               }
             }
             if (expMatch) payloadData.exp = Number.parseInt(expMatch[1])
             if (iatMatch) payloadData.iat = Number.parseInt(iatMatch[1])
-            console.log("[v0] Extracted basic info using regex fallback:", payloadData)
           } else {
             validation.error = `JWT payload parsing failed: ${jsonError}`
-            console.log("[v0] JWT payload decoding failed:", jsonError)
             return validation
           }
         }
       }
-
-      console.log("[v0] JWT payload decoded successfully:", {
-        sub: payloadData.sub,
-        exp: payloadData.exp,
-        iat: payloadData.iat,
-        iss: payloadData.iss,
-      })
 
       validation.payload = payloadData
 
       const steamId = payloadData.sub
       if (steamId) {
         const cleanSteamId = String(steamId).replace(/[^\d]/g, "")
-        // Validate Steam ID format: exactly 17 digits starting with 7656119
         if (/^7656119\d{10}$/.test(cleanSteamId) && cleanSteamId.length === 17) {
           validation.steam_id = cleanSteamId
-          console.log("[v0] Steam ID extracted and validated:", validation.steam_id)
         } else {
-          console.log("[v0] Invalid Steam ID format:", steamId, "cleaned:", cleanSteamId)
           validation.error = "Invalid Steam ID format in JWT"
         }
       } else {
-        console.log("[v0] No Steam ID found in JWT payload")
         validation.error = "No Steam ID found in JWT"
       }
 
-      // Extract expiration
       const expTimestamp = payloadData.exp
       if (expTimestamp) {
         validation.expires_at = expTimestamp
         const currentTime = Math.floor(Date.now() / 1000)
         validation.is_expired = currentTime > expTimestamp
-        console.log("[v0] JWT expiration check:", {
-          expires_at: expTimestamp,
-          current_time: currentTime,
-          is_expired: validation.is_expired,
-        })
       }
 
-      // Extract issued at
       const iatTimestamp = payloadData.iat
       if (iatTimestamp) {
         validation.issued_at = iatTimestamp
@@ -468,19 +405,14 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
         validation.is_valid = false
       } else if (!validation.steam_id) {
         validation.error = "No valid Steam ID found in token"
-      } else {
-        console.log("[v0] JWT validation successful")
       }
     } catch (decodeError) {
       validation.error = `JWT payload decoding error: ${decodeError}`
-      console.log("[v0] JWT payload decoding failed:", decodeError)
     }
   } catch (error) {
     validation.error = `JWT parsing error: ${error}`
-    console.log("[v0] JWT parsing failed:", error)
   }
 
-  console.log("[v0] JWT validation result:", validation)
   return validation
 }
 
@@ -494,7 +426,6 @@ function extractUsernameFromJWT(jwtToken: string): string | undefined {
       const payloadBytes = atob(payloadPart.replace(/-/g, "+").replace(/_/g, "/"))
       const payloadData = JSON.parse(payloadBytes)
 
-      // Look for username-like fields
       for (const field of ["username", "name", "persona", "personaname"]) {
         if (payloadData[field]) {
           return payloadData[field]
@@ -509,7 +440,6 @@ function extractUsernameFromJWT(jwtToken: string): string | undefined {
 
 function extractSteamIdFromToken(tokenString: string): string | undefined {
   try {
-    // Try to extract from JWT
     if (tokenString.includes(".")) {
       const parts = tokenString.split(".")
       if (parts.length >= 2) {
@@ -536,7 +466,6 @@ function extractSteamIdFromToken(tokenString: string): string | undefined {
     const steamIdMatch = tokenString.match(/7656119\d{10}/)
     if (steamIdMatch) {
       const steamId = steamIdMatch[0]
-      // Double-check it's exactly 17 digits
       if (steamId.length === 17) {
         return steamId
       }
@@ -591,7 +520,6 @@ async function getUserProfile(steamId: string, apiKey: string): Promise<UserProf
       const response = await fetch(`/api/steam/profile?steamId=${steamId}&apiKey=${encodeURIComponent(apiKey)}`)
 
       if (response.status === 429) {
-        // Rate limited, wait and retry
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
           continue
@@ -649,11 +577,9 @@ async function getBanInfo(steamId: string, apiKey: string): Promise<BanInfo> {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[v0] Fetching ban info for Steam ID: ${steamId}`)
       const response = await fetch(`/api/steam/bans?steamId=${steamId}&apiKey=${encodeURIComponent(apiKey)}`)
 
       if (response.status === 429) {
-        // Rate limited, wait and retry
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
           continue
@@ -665,14 +591,6 @@ async function getBanInfo(steamId: string, apiKey: string): Promise<BanInfo> {
       }
 
       const data = await response.json()
-      console.log(`[v0] Ban info received for ${steamId}:`, {
-        VACBanned: data.VACBanned,
-        CommunityBanned: data.CommunityBanned,
-        EconomyBan: data.EconomyBan,
-        NumberOfVACBans: data.NumberOfVACBans,
-        NumberOfGameBans: data.NumberOfGameBans,
-        DaysSinceLastBan: data.DaysSinceLastBan,
-      })
 
       if (data.error) {
         throw new Error(data.error)
