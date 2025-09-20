@@ -8,44 +8,52 @@
 
 ## 🚀 Overview
 
-Steam Account Checker is a comprehensive web application that allows you to validate Steam accounts in bulk using Steam tokens or Steam Web API keys. The application features enterprise-grade security, real-time validation, and an intuitive user interface optimized for both desktop and mobile devices.
+Steam Account Checker is a comprehensive web application that allows you to validate Steam accounts in bulk using Steam tokens. The application features enterprise-grade security, real-time validation, and an intuitive user interface optimized for both desktop and mobile devices.
 
 ## ✨ Features
 
 ### Core Functionality
-- **Bulk Account Validation**: Check multiple Steam accounts simultaneously
-- **Multiple Input Methods**: Support for Steam tokens and Steam Web API keys
-- **Real-time Processing**: Live progress tracking with detailed status updates
-- **Comprehensive Results**: Account status, ban information, and profile details
-- **Export Capabilities**: Download results in multiple formats
+- **Bulk Account Validation**: Check multiple Steam accounts simultaneously with real-time progress tracking
+- **Multiple Input Methods**: Support for Steam tokens
+- **Comprehensive Results**: Account status, ban information, profile details, and inventory data
+- **Smart Error Handling**: Graceful handling of API limitations, rate limits, and temporary failures
+- **Export Capabilities**: Download results in CSV format or export clean tokens
 - **File Import**: Support for text files with username----token format
 - **Mobile Optimized**: Fully responsive design for all devices
+
+### Advanced Inventory System
+- **Multi-Method Access**: Uses Steam Web API, SkinBackpack API, and Community endpoints
+- **Smart Fallbacks**: Automatically tries alternative methods when primary access fails
+- **Private Detection**: Correctly identifies and handles private inventories
+- **Authentication Support**: Steam login for enhanced inventory access
+- **Rate Limit Handling**: Intelligent rate limiting with automatic retry logic
+- **Value Estimation**: Basic inventory value calculation for CS2 items
 
 ### Security Features
 - **XSS Protection**: Comprehensive input sanitization and validation
 - **CSRF Protection**: Token-based request validation
-- **Rate Limiting**: Advanced rate limiting with IP-based blocking
+- **Rate Limiting**: Advanced rate limiting with IP-based blocking (10 requests/minute for inventory)
 - **DoS Prevention**: Request timeouts and content-length limits
 - **Encrypted Storage**: API keys encrypted before localStorage storage
 - **Secure Headers**: CSP, HSTS, and other security headers implemented
 
 ### User Experience
-- **Responsive Design**: Mobile-first design with Tailwind CSS
-- **Mobile-Friendly Interface**: Optimized layouts for phones and tablets
-- **Card-Based Mobile Layout**: Account results displayed in easy-to-read cards on mobile
-- **Touch-Optimized Controls**: Buttons and inputs designed for touch interfaces
-- **Dark/Light Mode**: Theme switching with system preference detection
-- **Help System**: Comprehensive help modal with usage instructions
+- **Responsive Design**: Mobile-first design with Tailwind CSS v4
+- **Enhanced Animations**: Beautiful background animations with floating orbs and grid patterns
+- **Professional UI**: Glass-morphism effects and smooth transitions
+- **Tab Navigation**: Clean tabbed interface for Checker, Results, and Settings
 - **Progress Tracking**: Real-time validation progress with detailed feedback
-- **Error Handling**: Graceful error handling with user-friendly messages
+- **Toast Notifications**: User-friendly success, error, and warning messages
+- **Help System**: Comprehensive help modal with detailed usage instructions
 
 ## 🛠️ Technology Stack
 
 - **Framework**: Next.js 14.2.32 (App Router)
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui
+- **Styling**: Tailwind CSS v4 with custom animations
+- **UI Components**: shadcn/ui with custom enhancements
 - **Security**: Custom middleware with comprehensive protection
+- **APIs**: Steam Web API, SkinBackpack API, Steam Community API
 - **Deployment**: Vercel
 
 ## 🔧 Installation & Setup
@@ -53,121 +61,108 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
-- Steam Web API Key (optional, for enhanced features)
+- Steam Web API Key (recommended for best results)
 
 ### Local Development
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/ZoniBoy00/steam-account-checker-e2.git
-   cd steam-account-checker-e2
-   ```
+   \`\`\`bash
+   git clone https://github.com/ZoniBoy00/steam-account-checker.git
+   cd steam-account-checker
+   \`\`\`
 
 2. **Install dependencies**
-   ```bash
+   \`\`\`bash
    npm install
    # or
    yarn install
-   ```
+   \`\`\`
 
 3. **Environment Setup** (Optional)
-   ```bash
+   \`\`\`bash
    cp .env.example .env.local
    # Add your Steam Web API key if available
    STEAM_API_KEY=your_steam_api_key_here
-   ```
+   \`\`\`
 
 4. **Run the development server**
-   ```bash
+   \`\`\`bash
    npm run dev
    # or
    yarn dev
-   ```
+   \`\`\`
 
 5. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## 📖 Usage Guide
 
-### Getting Steam Tokens
-1. Open Steam in your browser and log in
-2. Open Developer Tools (F12)
-3. Go to Application/Storage → Cookies → https://steamcommunity.com
-4. Find and copy the `steamLoginSecure` cookie value
+### Getting Started
 
-### Using the Application
+#### 1. Steam Web API Key (Recommended)
+1. Visit [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey)
+2. Log in with your Steam account
+3. Enter any domain name (e.g., "localhost" for testing)
+4. Copy the generated API key
+5. Go to Settings tab and paste your API key
 
-#### Manual Token Entry
-1. **Input Method**: Choose between Steam tokens or Steam Web API key
-2. **Add Accounts**: Paste tokens in the textarea (one per line or separated by commas)
-3. **Multi-line Support**: Use Enter key to create new lines in the input field
-4. **Configure Settings**: Set delays, timeouts, and other preferences
-5. **Start Validation**: Click "Start Checking" to begin the process
+#### 2. Steam Authentication (Optional)
+1. Go to Settings tab and find "Steam Authentication"
+2. Click "Login with Steam" for enhanced inventory access
+3. Complete Steam's official login process
+4. Authenticated sessions bypass many API restrictions
 
-#### File Upload
-1. **Prepare File**: Create a text file with tokens in supported formats
-2. **Upload File**: Click "Import from File" and select your .txt file
-3. **Supported Formats**:
-   - `username----token` (preserves username for identification)
-   - `token` (plain token format)
-4. **Automatic Processing**: Tokens are automatically parsed and added to the input
+### Adding Steam Tokens
 
-#### Results & Export
-1. **Monitor Progress**: Watch real-time progress and results
-2. **View Results**: See detailed account information in responsive cards/table
-3. **Mobile View**: Results automatically adapt to mobile screens with card layout
-4. **Export Results**: Download validated account data
+The checker supports multiple token formats:
 
-### File Upload Formats
-The application accepts text files with the following formats:
+**Username Format (Recommended):**
+\`\`\`
+username----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+\`\`\`
 
-**Username + Token Format (Recommended):**
-```
-curtain2181----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-player123----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-gamer456----eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-```
-
-**Plain Token Format:**
-```
+**Direct JWT:**
+\`\`\`
 eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-eyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
-```
+\`\`\`
 
-## 📱 Mobile Support
+**Cookie Format:**
+\`\`\`
+steamLoginSecure=76561198123456789%7C%7CeyJhbGciOiJFRFJTQSIsInR5cCI6IkpXVCJ9...
+\`\`\`
 
-The application is fully optimized for mobile devices:
+### File Upload
+1. Create a text file with tokens (one per line)
+2. Click "Import File" and select your .txt file
+3. Supported formats: .txt, .csv, .log (up to 5MB)
+4. Tokens are automatically parsed and validated
 
-- **Responsive Layout**: Adapts to all screen sizes from phones to desktops
-- **Touch-Friendly**: Large buttons and touch targets for easy interaction
-- **Mobile Navigation**: Simplified navigation optimized for mobile use
-- **Card Layout**: Account results displayed in easy-to-read cards on mobile
-- **Optimized Typography**: Text sizes and spacing optimized for mobile reading
-- **Fast Loading**: Optimized for mobile network conditions
+### Running Checks
+1. Add tokens using manual entry or file upload
+2. Configure Steam Web API key in Settings
+3. (Optional) Login with Steam for better inventory access
+4. Click "Check Accounts" to start validation
+5. Monitor real-time progress
+6. View detailed results in Results tab
 
-## 🔒 Security Features
+## 🔍 Understanding Results
 
-### Input Validation
-- Comprehensive XSS prevention
-- Steam token format validation
-- File type and size restrictions (.txt, .csv, .log files up to 10MB)
-- Malicious content detection
-- Username preservation with secure parsing
+### Account Status
+- **Valid**: Account is active and accessible
+- **Invalid**: Token is invalid or expired
+- **Expired**: Session has expired and needs renewal
 
-### API Security
-- Rate limiting (100 requests per 15 minutes)
-- IP-based blocking for abuse prevention
-- Request timeout protection
-- CSRF token validation
-- Secure header implementation
+### Ban Status
+- **VAC Banned**: Valve Anti-Cheat ban detected
+- **Community Banned**: Steam Community ban
+- **Game Bans**: Game-specific bans (e.g., Overwatch in CS2)
 
-### Data Protection
-- API keys encrypted before storage
-- No sensitive data logged
-- Secure cookie handling
-- Content Security Policy (CSP)
-- Secure file upload processing
+### Inventory Status
+- **Loaded**: Inventory data successfully retrieved with item count and estimated value
+- **Private**: Inventory is set to private (correctly detected)
+- **Auth Required**: Steam authentication needed for access
+- **Temporarily Unavailable**: Steam servers busy or API limits reached
+- **Access Restricted**: Rate limited or temporary Steam restrictions
 
 ## 🚀 Deployment
 
@@ -187,25 +182,36 @@ The application is fully optimized for mobile devices:
 
 ### Common Issues
 
-**File Upload Not Working:**
-- Ensure file is in .txt, .csv, or .log format
-- Check file size is under 10MB
-- Verify file contains valid token format
+**Inventory Access Problems:**
+- **"Temporarily unavailable"**: Steam servers may be busy, try again later
+- **"Steam Web API access issue"**: API key may lack inventory permissions
+- **"Access restricted"**: Steam experiencing high traffic, wait and retry
+- **"Private inventory"**: Correctly detected, cannot be accessed
 
-**Tokens Not Parsing:**
-- Check token format matches expected patterns
-- Ensure no extra spaces or characters
-- Try both username----token and plain token formats
+**API Key Issues:**
+- **"Invalid API key"**: Verify key is correct and active
+- **"Access denied"**: API key may lack necessary permissions
+- **"Rate limited"**: Wait before making more requests
 
-**Mobile Display Issues:**
-- Clear browser cache and reload
-- Ensure JavaScript is enabled
-- Try different mobile browsers
+**General Issues:**
+- **File upload not working**: Ensure file is .txt/.csv/.log format under 5MB
+- **Tokens not parsing**: Check format matches expected patterns
+- **Mobile display issues**: Clear browser cache and reload
 
-**Rate Limiting:**
-- Wait 15 minutes before retrying
-- Reduce batch size for large token lists
-- Check network connection stability
+### Performance Tips
+- Use Steam authentication for better inventory access
+- Wait between large batch checks to avoid rate limits
+- Keep API key secure and don't share it
+- Use file upload for large token lists
+
+## 🔒 Security & Privacy
+
+- **Local Processing**: All data processed locally in your browser
+- **No Data Storage**: No tokens or account data stored on external servers
+- **Encrypted API Keys**: API keys encrypted before localStorage storage
+- **Official APIs**: Only communicates with official Steam servers
+- **Steam Authentication**: Uses official Steam OpenID protocol
+- **Rate Limiting**: Prevents abuse with intelligent rate limiting
 
 ## 🤝 Contributing
 
@@ -225,12 +231,12 @@ This tool is for educational and legitimate account management purposes only. Us
 
 ## 🐛 Bug Reports & Feature Requests
 
-Please use the [GitHub Issues](https://github.com/ZoniBoy00/steam-account-checker-e2/issues) page to report bugs or request new features.
+Please use the [GitHub Issues](https://github.com/ZoniBoy00/steam-account-checker/issues) page to report bugs or request new features.
 
 ## 📞 Support
 
 - **GitHub**: [@ZoniBoy00](https://github.com/ZoniBoy00)
-- **Issues**: [Report a bug](https://github.com/ZoniBoy00/steam-account-checker-e2/issues)
+- **Issues**: [Report a bug](https://github.com/ZoniBoy00/steam-account-checker/issues)
 
 ---
 

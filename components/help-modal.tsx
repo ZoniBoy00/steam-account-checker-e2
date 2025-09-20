@@ -262,6 +262,35 @@ export function HelpModal() {
                       <li>
                         <strong>Steam login not working:</strong> Ensure popups are enabled and try again
                       </li>
+                      <li>
+                        <strong>"Inventory temporarily unavailable":</strong> Steam servers may be busy, try again later
+                      </li>
+                      <li>
+                        <strong>"Steam Web API access issue":</strong> Your API key may lack inventory permissions
+                      </li>
+                      <li>
+                        <strong>"Access restricted":</strong> Steam may be experiencing high traffic, wait and retry
+                      </li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-slate-200 mb-2">Inventory Issues:</h4>
+                    <ul className="list-disc list-inside space-y-1 ml-4 text-slate-400 text-xs">
+                      <li>
+                        <strong>Private inventories:</strong> These are correctly detected and cannot be accessed
+                      </li>
+                      <li>
+                        <strong>API key issues:</strong> Some Steam Web API keys may have limited inventory permissions
+                      </li>
+                      <li>
+                        <strong>Rate limiting:</strong> Steam limits inventory requests - wait between checks
+                      </li>
+                      <li>
+                        <strong>Authentication helps:</strong> Steam login can bypass some access restrictions
+                      </li>
+                      <li>
+                        <strong>Temporary failures:</strong> Steam inventory service can be temporarily unavailable
+                      </li>
                     </ul>
                   </div>
                 </div>

@@ -251,16 +251,16 @@ export async function GET(request: NextRequest) {
               continue
             } else {
               if (data.error_message?.includes("Access Denied")) {
-                lastError = `Steam Web API: Access denied - API key may lack permissions`
+                lastError = `Steam Web API access denied - check API key permissions`
                 methodErrors.push(`${method.type}: Access denied`)
               } else if (data.error_message?.includes("Invalid API Key")) {
-                lastError = `Steam Web API: Invalid API key format or expired`
+                lastError = `Steam Web API key is invalid or expired`
                 methodErrors.push(`${method.type}: Invalid API key`)
               } else if (data.error_message?.includes("Internal Server Error")) {
-                lastError = `Steam Web API: Steam servers temporarily unavailable`
+                lastError = `Steam servers temporarily unavailable`
                 methodErrors.push(`${method.type}: Server error`)
               } else if (data.error_message?.includes("Forbidden")) {
-                lastError = `Steam Web API: Request forbidden - check API key permissions`
+                lastError = `Steam Web API request forbidden - check API key permissions`
                 methodErrors.push(`${method.type}: Forbidden`)
               } else if (data.error_message) {
                 lastError = `Steam Web API: ${data.error_message}`
@@ -269,7 +269,7 @@ export async function GET(request: NextRequest) {
                 lastError = `Steam Web API: ${data.error}`
                 methodErrors.push(`${method.type}: ${data.error}`)
               } else if (data.response?.success === 0) {
-                lastError = "Steam Web API: No data available for this inventory"
+                lastError = "Steam Web API: No inventory data available"
                 methodErrors.push(`${method.type}: No data available`)
               } else {
                 lastError = `Steam Web API: Unexpected response format`
@@ -399,12 +399,12 @@ export async function GET(request: NextRequest) {
     if (lastError.includes("Invalid API key") || lastError.includes("Access denied")) {
       return NextResponse.json(
         {
-          error: "Steam Web API access issue. Using alternative methods.",
+          error: "Steam Web API key issue detected. Using alternative methods.",
           inventoryValue: 0,
           itemCount: 0,
           isPrivate: null,
           method: "api_key_issue",
-          suggestion: "Inventory data may be limited without a valid Steam Web API key",
+          suggestion: "Check your Steam Web API key configuration",
         },
         {
           status: 200,
@@ -418,7 +418,7 @@ export async function GET(request: NextRequest) {
     if (lastError.includes("Rate limited") || lastError.includes("429")) {
       return NextResponse.json(
         {
-          error: "Steam API rate limit reached. Please try again later.",
+          error: "Steam API rate limit reached.",
           inventoryValue: 0,
           itemCount: 0,
           isPrivate: null,
@@ -443,7 +443,7 @@ export async function GET(request: NextRequest) {
           isPrivate: null,
           method: "access_restricted",
           suggestion: isAuthenticated
-            ? "Try again later - Steam may be experiencing high traffic"
+            ? "Steam may be experiencing high traffic. Try again later."
             : "Steam authentication might help with inventory access",
           requiresAuth: !isAuthenticated,
         },
@@ -458,7 +458,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: "Unable to access inventory at this time.",
+        error: "Unable to access inventory data at this time.",
         inventoryValue: 0,
         itemCount: 0,
         isPrivate: null,
@@ -473,13 +473,6 @@ export async function GET(request: NextRequest) {
       },
     )
   } catch (error) {
-    console.error("Steam inventory API error:", {
-      error: error instanceof Error ? error.message : "Unknown error",
-      steamId: sanitizedSteamId,
-      hasApiKey: !!apiKey,
-      isAuthenticated,
-    })
-
     if (error instanceof Error) {
       if (error.name === "AbortError" || error.message === "Connection timeout") {
         return NextResponse.json(
@@ -550,96 +543,4 @@ function calculateInventoryValue(assets: any[], descriptions: any[]): number {
   }
 
   return Math.round(estimatedValue * 100) / 100
-}
-
-interface InventoryInfo {
-  inventoryValue: number
-  itemCount: number
-  isPrivate: boolean
-  error: string | null
-  debugInfo: string
-}
-
-async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
-  const maxRetries = 2
-  let lastError: Error | null = null
-  const debugInfo: string[] = []
-
-  debugInfo.push(`Starting inventory check for Steam ID: ${steamId}`)
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      debugInfo.push(`Attempt ${attempt + 1}/${maxRetries + 1}`)
-
-      const response = await fetch(`/api/steam/inventory?steamId=${steamId}`)
-
-      if (response.status === 429) {
-        debugInfo.push(`Rate limited on attempt ${attempt + 1}`)
-        if (attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
-          continue
-        }
-      }
-
-      if (!response.ok) {
-        debugInfo.push(`HTTP ${response.status}: ${response.statusText}`)
-        throw new Error(`Inventory API request failed: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      debugInfo.push(`Response received: ${JSON.stringify(data).substring(0, 200)}...`)
-
-      if (data.error) {
-        debugInfo.push(`API returned error: ${data.error}`)
-
-        if (data.isPrivate) {
-          return {
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: true,
-            error: "Private inventory",
-            debugInfo: debugInfo.join(" | "),
-          }
-        }
-
-        if (data.requiresAuth) {
-          return {
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: false,
-            error: "Steam authentication required",
-            debugInfo: debugInfo.join(" | "),
-          }
-        }
-      }
-
-      debugInfo.push(`Success: Value=${data.inventoryValue}, Items=${data.itemCount}`)
-
-      return {
-        inventoryValue: data.inventoryValue || 0,
-        itemCount: data.itemCount || 0,
-        isPrivate: data.isPrivate || false,
-        error: data.error || null,
-        debugInfo: debugInfo.join(" | "),
-      }
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error("Unknown error")
-      debugInfo.push(`Error on attempt ${attempt + 1}: ${lastError.message}`)
-
-      if (attempt < maxRetries) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
-        continue
-      }
-    }
-  }
-
-  debugInfo.push(`All attempts failed. Last error: ${lastError?.message}`)
-
-  return {
-    inventoryValue: 0,
-    itemCount: 0,
-    isPrivate: false,
-    error: lastError?.message || "Failed to fetch inventory",
-    debugInfo: debugInfo.join(" | "),
-  }
 }

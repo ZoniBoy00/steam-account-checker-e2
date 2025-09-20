@@ -179,26 +179,17 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
   const maxRetries = 3
   let lastError: Error | null = null
 
-  console.log(`[Inventory Debug] Starting Inventory check for Steam ID: ${steamId}`)
-
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[Inventory Debug] Attempt ${attempt + 1}/${maxRetries + 1}`)
-
       const url = new URL("/api/steam/inventory", window.location.origin)
       url.searchParams.set("steamId", steamId)
       if (apiKey && apiKey.trim()) {
         url.searchParams.set("apiKey", apiKey.trim())
-        console.log(`[Inventory Debug] Using Steam Web API key for enhanced access`)
-      } else {
-        console.log(`[Inventory Debug] No API key provided, using fallback methods`)
       }
 
       const response = await fetch(url.toString())
 
       if (response.status === 429) {
-        console.log(`[Inventory Debug] Rate limited on attempt ${attempt + 1}`)
-        // Rate limited, wait and retry
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
           continue
@@ -206,27 +197,13 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
       }
 
       if (!response.ok) {
-        console.log(`[Inventory Debug] HTTP ${response.status}: ${response.statusText}`)
         throw new Error(`Inventory API request failed: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
-      console.log(`[Inventory Debug] Response received:`, {
-        error: data.error,
-        inventoryValue: data.inventoryValue,
-        itemCount: data.itemCount,
-        isPrivate: data.isPrivate,
-        method: data.method,
-        requiresAuth: data.requiresAuth,
-        suggestion: data.suggestion,
-      })
 
       if (data.error) {
-        console.log(`[Inventory Debug] API returned error: ${data.error}`)
-
-        // Check if it's a private inventory
         if (data.isPrivate) {
-          console.log(`[Inventory Debug] Private inventory detected`)
           return {
             inventoryValue: 0,
             itemCount: 0,
@@ -235,9 +212,7 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
           }
         }
 
-        // Check if authentication is required
         if (data.requiresAuth) {
-          console.log(`[Inventory Debug] Steam authentication required`)
           return {
             inventoryValue: 0,
             itemCount: 0,
@@ -246,9 +221,17 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
           }
         }
 
-        // Check for API key suggestion
         if (data.suggestion) {
-          console.log(`[Inventory Debug] API suggestion: ${data.suggestion}`)
+          return {
+            inventoryValue: 0,
+            itemCount: 0,
+            isPrivate: false,
+            error: data.error,
+            suggestion: data.suggestion,
+          }
+        }
+
+        if (data.method === "rate_limited" || data.method === "access_restricted") {
           return {
             inventoryValue: 0,
             itemCount: 0,
@@ -259,10 +242,6 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
         }
       }
 
-      console.log(
-        `[Inventory Debug] Success: Value=${data.inventoryValue}, Items=${data.itemCount}, Method=${data.method || "Unknown"}`,
-      )
-
       return {
         inventoryValue: data.inventoryValue || 0,
         itemCount: data.itemCount || 0,
@@ -272,7 +251,6 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("Unknown error")
-      console.log(`[Inventory Debug] Error on attempt ${attempt + 1}: ${lastError.message}`)
 
       if (attempt < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
@@ -280,8 +258,6 @@ async function getInventoryInfo(steamId: string, apiKey?: string): Promise<Inven
       }
     }
   }
-
-  console.log(`[Inventory Debug] All attempts failed. Last error: ${lastError?.message}`)
 
   return {
     inventoryValue: 0,
@@ -300,7 +276,6 @@ function parseTokenFormat(tokenString: string): TokenInfo {
   }
 
   try {
-    // Handle username----JWT format
     if (tokenString.includes("----")) {
       const parts = tokenString.split("----", 2)
       if (parts.length === 2) {
@@ -311,7 +286,6 @@ function parseTokenFormat(tokenString: string): TokenInfo {
       }
     }
 
-    // Handle steamLoginSecure= format
     if (tokenString.includes("steamLoginSecure=")) {
       const match = tokenString.match(/steamLoginSecure=([^;]+)/)
       if (match) {
@@ -328,7 +302,6 @@ function parseTokenFormat(tokenString: string): TokenInfo {
       }
     }
 
-    // Handle direct JWT token
     if (tokenString.split(".").length === 3) {
       tokenInfo.jwt_token = tokenString.trim()
       tokenInfo.cookies["steamLoginSecure"] = tokenString.trim()
@@ -341,11 +314,8 @@ function parseTokenFormat(tokenString: string): TokenInfo {
       return tokenInfo
     }
 
-    // Fallback: parse as cookie string
     tokenInfo.cookies = parseCookiesFromLine(tokenString)
-  } catch (error) {
-    // Silent error handling for token parsing
-  }
+  } catch (error) {}
 
   return tokenInfo
 }
@@ -371,13 +341,11 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
 
     let payloadPart = parts[1]
 
-    // Add padding if needed
     while (payloadPart.length % 4 !== 0) {
       payloadPart += "="
     }
 
     try {
-      // Handle URL-safe base64
       const normalizedPayload = payloadPart.replace(/-/g, "+").replace(/_/g, "/")
       const payloadBytes = atob(normalizedPayload)
 
@@ -385,22 +353,16 @@ function validateJWTToken(jwtToken: string): JWTValidation | null {
       try {
         payloadData = JSON.parse(payloadBytes)
       } catch (jsonError) {
-        // Try to fix common JSON issues
         let fixedPayload = payloadBytes
 
-        // Fix missing quotes around property names
         fixedPayload = fixedPayload.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
 
-        // Fix unescaped quotes in values
         fixedPayload = fixedPayload.replace(/:\s*"([^"]*)"([^",}]*)"([^",}]*)/g, ':"$1\\"$2\\"$3"')
 
-        // Fix trailing commas
         fixedPayload = fixedPayload.replace(/(,\s*[}\]])/g, "$1")
 
-        // Fix missing commas between properties
         fixedPayload = fixedPayload.replace(/"\s*([a-zA-Z_])/g, '", "$1')
 
-        // Try parsing the fixed payload
         try {
           payloadData = JSON.parse(fixedPayload)
         } catch (recoveryError) {
@@ -501,9 +463,7 @@ function extractUsernameFromJWT(jwtToken: string): string | undefined {
         }
       }
     }
-  } catch (error) {
-    // Ignore parsing errors
-  }
+  } catch (error) {}
   return undefined
 }
 
@@ -526,9 +486,7 @@ function extractSteamIdFromToken(tokenString: string): string | undefined {
               return cleanSteamId
             }
           }
-        } catch (error) {
-          // Continue to other methods
-        }
+        } catch (error) {}
       }
     }
 
@@ -539,9 +497,7 @@ function extractSteamIdFromToken(tokenString: string): string | undefined {
         return steamId
       }
     }
-  } catch (error) {
-    // Silent error handling for token parsing
-  }
+  } catch (error) {}
 
   return undefined
 }
