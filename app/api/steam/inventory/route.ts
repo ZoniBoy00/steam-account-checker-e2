@@ -406,6 +406,7 @@ export async function GET(request: NextRequest) {
           inventoryValue: 0,
           itemCount: 0,
           isPrivate: true,
+          method: "private_inventory_detected",
         },
         {
           status: 200,
