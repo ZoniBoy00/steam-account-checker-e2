@@ -151,15 +151,15 @@ export function TokenInput({
           />
         </div>
 
-        <div className="flex items-center space-x-3 p-4 bg-slate-900/30 rounded-lg border border-slate-700 opacity-50">
-          <Package className="h-4 w-4 text-slate-400" />
+        <div className="flex items-center space-x-3 p-4 bg-slate-900/30 rounded-lg border border-slate-700">
+          <Package className="h-4 w-4 text-orange-400" />
           <div className="flex-1">
-            <Label htmlFor="inventory-toggle" className="text-sm font-medium text-slate-400">
+            <Label htmlFor="inventory-toggle" className="text-sm font-medium text-slate-200">
               Check CS2 Inventory Value
             </Label>
-            <p className="text-xs text-slate-500 mt-1">Coming soon - requires Steam authentication integration</p>
+            <p className="text-xs text-slate-400 mt-1">Requires Steam authentication for private inventories</p>
           </div>
-          <Switch id="inventory-toggle" checked={false} onCheckedChange={() => {}} disabled={true} />
+          <Switch id="inventory-toggle" checked={checkInventory} onCheckedChange={setCheckInventory} />
         </div>
 
         <Textarea
@@ -207,12 +207,12 @@ Paste your tokens below or use the Import File button above.`}
                 Ready to check
               </Badge>
             )}
-            {/* {checkInventory && (
+            {checkInventory && (
               <Badge variant="outline" className="border-orange-600 text-orange-400 text-xs">
                 <Package className="h-3 w-3 mr-1" />
                 Inventory enabled
               </Badge>
-            )} */}
+            )}
           </div>
           <Button
             onClick={onCheck}

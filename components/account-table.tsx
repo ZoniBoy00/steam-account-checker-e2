@@ -160,6 +160,18 @@ export function AccountTable({ accounts }: AccountTableProps) {
       )
     }
 
+    if (inventory.requiresAuth) {
+      return (
+        <div
+          className="flex items-center gap-2 text-blue-400 cursor-help"
+          title="Steam authentication required to access inventory data. Use the Steam Authentication section to login."
+        >
+          <Package className="h-3 w-3" />
+          <span className="text-xs">Login Required</span>
+        </div>
+      )
+    }
+
     if (inventory.isPrivate === true || inventory.error === "Private inventory") {
       return (
         <div className="flex items-center gap-2 text-yellow-400">
@@ -173,10 +185,10 @@ export function AccountTable({ accounts }: AccountTableProps) {
       return (
         <div
           className="flex items-center gap-2 text-orange-400 cursor-help"
-          title="Unable to determine if inventory is private or public - Steam requires authentication to access inventory data"
+          title="Unable to determine if inventory is private or public - Steam authentication may be required"
         >
           <Package className="h-3 w-3" />
-          <span className="text-xs">Auth Required</span>
+          <span className="text-xs">Auth Needed</span>
         </div>
       )
     }
@@ -192,7 +204,7 @@ export function AccountTable({ accounts }: AccountTableProps) {
         return (
           <div
             className="flex items-center gap-2 text-orange-400 cursor-help"
-            title="Steam's inventory API is blocking requests without authentication. This is a known limitation - Steam requires login cookies to access inventory data."
+            title="Steam's inventory API is blocking requests. Try logging in with Steam authentication to access inventory data."
           >
             <Package className="h-3 w-3" />
             <span className="text-xs">API Blocked</span>

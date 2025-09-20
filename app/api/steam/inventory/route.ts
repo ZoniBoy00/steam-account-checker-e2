@@ -81,6 +81,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid Steam ID format" }, { status: 400 })
   }
 
+  const steamAuth = request.cookies.get("steam_auth")
+  const isAuthenticated = !!steamAuth?.value
+
+  console.log("[v0] Steam authentication status:", isAuthenticated ? "authenticated" : "not authenticated")
+
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => {
@@ -96,25 +101,33 @@ export async function GET(request: NextRequest) {
     let lastError = ""
 
     for (const inventoryUrl of inventoryUrls) {
-      console.log("[v0] Attempting to fetch inventory directly from Steam:", inventoryUrl)
+      console.log("[v0] Attempting to fetch inventory from Steam:", inventoryUrl)
 
       try {
+        const headers: Record<string, string> = {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "application/json, text/plain, */*",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate, br",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          "Sec-Fetch-Dest": "empty",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Site": "same-origin",
+          Referer: `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/`,
+          Origin: "https://steamcommunity.com",
+        }
+
+        // Add Steam authentication cookie if available
+        if (isAuthenticated && steamAuth?.value) {
+          headers["Cookie"] = `steamLoginSecure=${steamAuth.value}`
+          console.log("[v0] Using Steam authentication cookie for inventory request")
+        }
+
         response = await Promise.race([
           fetch(inventoryUrl, {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-              Accept: "application/json, text/plain, */*",
-              "Accept-Language": "en-US,en;q=0.9",
-              "Accept-Encoding": "gzip, deflate, br",
-              "Cache-Control": "no-cache",
-              Connection: "keep-alive",
-              "Sec-Fetch-Dest": "empty",
-              "Sec-Fetch-Mode": "cors",
-              "Sec-Fetch-Site": "same-origin",
-              Referer: `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/`,
-              Origin: "https://steamcommunity.com",
-            },
+            headers,
             signal: controller.signal,
           }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 8000)),
@@ -234,20 +247,38 @@ export async function GET(request: NextRequest) {
     console.log("[v0] All inventory endpoints failed, last error:", lastError)
 
     if (lastError.includes("403") || lastError.includes("400")) {
-      return NextResponse.json(
-        {
-          error: "Unable to access inventory - may be private or require authentication",
-          inventoryValue: 0,
-          itemCount: 0,
-          isPrivate: null, // Unknown privacy status
-        },
-        {
-          status: 200,
-          headers: {
-            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+      if (isAuthenticated) {
+        return NextResponse.json(
+          {
+            error: "Unable to access inventory - may be private or authentication expired",
+            inventoryValue: 0,
+            itemCount: 0,
+            isPrivate: true,
           },
-        },
-      )
+          {
+            status: 200,
+            headers: {
+              "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+            },
+          },
+        )
+      } else {
+        return NextResponse.json(
+          {
+            error: "Steam authentication required to access inventory data",
+            inventoryValue: 0,
+            itemCount: 0,
+            isPrivate: null, // Unknown privacy status without auth
+            requiresAuth: true,
+          },
+          {
+            status: 200,
+            headers: {
+              "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+            },
+          },
+        )
+      }
     }
 
     return NextResponse.json(

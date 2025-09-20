@@ -196,24 +196,24 @@ export function SettingsPanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert className="border-orange-500/50 bg-orange-500/10">
-            <Package className="h-4 w-4 text-orange-400" />
-            <AlertDescription className="text-orange-200">
-              <strong>Coming Soon:</strong> CS2 inventory checking is currently under development. This feature will
-              fetch and display estimated inventory values for accounts with public inventories.
+          <Alert className="border-blue-500/50 bg-blue-500/10">
+            <Package className="h-4 w-4 text-blue-400" />
+            <AlertDescription className="text-blue-200">
+              <strong>Steam Authentication Required:</strong> CS2 inventory checking requires Steam login to access
+              inventory data. Use the Steam Authentication section above to login and enable inventory features.
             </AlertDescription>
           </Alert>
 
-          <div className="flex items-center justify-between p-4 bg-slate-900/30 rounded-lg border border-slate-700 opacity-50">
+          <div className="flex items-center justify-between p-4 bg-slate-900/30 rounded-lg border border-slate-700">
             <div className="space-y-1">
-              <Label htmlFor="inventory-setting" className="text-sm font-medium text-slate-400">
+              <Label htmlFor="inventory-setting" className="text-sm font-medium text-slate-200">
                 Check CS2 Inventory Value
               </Label>
-              <p className="text-xs text-slate-500">
-                Feature temporarily disabled - coming soon with Steam authentication integration.
+              <p className="text-xs text-slate-400">
+                Fetch estimated inventory values for accounts with accessible inventories.
               </p>
             </div>
-            <Switch id="inventory-setting" checked={false} onCheckedChange={() => {}} disabled={true} />
+            <Switch id="inventory-setting" checked={checkInventory} onCheckedChange={setCheckInventory} />
           </div>
         </CardContent>
       </Card>

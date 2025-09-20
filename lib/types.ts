@@ -101,6 +101,7 @@ export interface SteamApiError {
 export interface InventoryInfo {
   inventoryValue: number
   itemCount: number
-  isPrivate: boolean
+  isPrivate: boolean | null // Allow null for unknown privacy status
   error: string | null
+  requiresAuth?: boolean // Added flag to indicate authentication requirement
 }
