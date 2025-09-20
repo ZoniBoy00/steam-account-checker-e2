@@ -118,7 +118,7 @@ async function processToken(
 
   let inventoryInfo: InventoryInfo | undefined
   if (checkInventory && steamId && steamId !== "Error" && steamId !== "Unknown") {
-    inventoryInfo = await getInventoryInfo(steamId)
+    inventoryInfo = await getInventoryInfo(steamId, apiKey)
   }
 
   let status = "Valid"
@@ -175,10 +175,9 @@ async function processToken(
   }
 }
 
-async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
+async function getInventoryInfo(steamId: string, apiKey?: string): Promise<InventoryInfo> {
   const maxRetries = 3
   let lastError: Error | null = null
-  const debugInfo: string[] = []
 
   console.log(`[Inventory Debug] Starting Inventory check for Steam ID: ${steamId}`)
 
@@ -186,7 +185,16 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
     try {
       console.log(`[Inventory Debug] Attempt ${attempt + 1}/${maxRetries + 1}`)
 
-      const response = await fetch(`/api/steam/inventory?steamId=${steamId}`)
+      const url = new URL("/api/steam/inventory", window.location.origin)
+      url.searchParams.set("steamId", steamId)
+      if (apiKey && apiKey.trim()) {
+        url.searchParams.set("apiKey", apiKey.trim())
+        console.log(`[Inventory Debug] Using Steam Web API key for enhanced access`)
+      } else {
+        console.log(`[Inventory Debug] No API key provided, using fallback methods`)
+      }
+
+      const response = await fetch(url.toString())
 
       if (response.status === 429) {
         console.log(`[Inventory Debug] Rate limited on attempt ${attempt + 1}`)

@@ -26,6 +26,8 @@ import { SteamLogin } from "@/components/steam-login"
 import { checkSteamAccounts } from "@/lib/steam-checker"
 import { SecurityUtils } from "@/lib/security"
 import { useToast } from "@/hooks/use-toast"
+import { NotificationCenter } from "@/components/notification-center"
+import { useNotificationCenter } from "@/hooks/use-notification-center"
 import type { SteamAccount, CheckStats } from "@/lib/types"
 
 export default function SteamCheckerPage() {
@@ -48,6 +50,7 @@ export default function SteamCheckerPage() {
   const [steamAuthenticated, setSteamAuthenticated] = useState(false)
   const [authenticatedSteamId, setAuthenticatedSteamId] = useState<string | null>(null)
   const { toast } = useToast()
+  const { notifications, addNotification, markAsRead, deleteNotification, clearAll } = useNotificationCenter()
   const [error, setError] = useState("") // Declare setError variable
 
   const tokenCount = useMemo(() => {
@@ -93,6 +96,7 @@ export default function SteamCheckerPage() {
       title: title || "Error",
       description: message,
     })
+    addNotification(title || "Error", message, "error")
   }
 
   const showSuccess = (message: string, title?: string) => {
@@ -101,6 +105,7 @@ export default function SteamCheckerPage() {
       title: title || "Success",
       description: message,
     })
+    addNotification(title || "Success", message, "success")
   }
 
   const showWarning = (message: string, title?: string) => {
@@ -109,6 +114,7 @@ export default function SteamCheckerPage() {
       title: title || "Warning",
       description: message,
     })
+    addNotification(title || "Warning", message, "warning")
   }
 
   const showInfo = (message: string, title?: string) => {
@@ -117,6 +123,7 @@ export default function SteamCheckerPage() {
       title: title || "Info",
       description: message,
     })
+    addNotification(title || "Info", message, "info")
   }
 
   const saveApiKey = useCallback(() => {
@@ -422,6 +429,14 @@ export default function SteamCheckerPage() {
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-balance text-white">
               Steam Account Checker
             </h1>
+            <div className="ml-auto">
+              <NotificationCenter
+                notifications={notifications}
+                onMarkAsRead={markAsRead}
+                onDelete={deleteNotification}
+                onClearAll={clearAll}
+              />
+            </div>
           </div>
           <p className="text-slate-400 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
             Professional Steam session token validation with comprehensive account analysis and ban detection
