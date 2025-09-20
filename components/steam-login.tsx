@@ -7,6 +7,14 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { LogIn, LogOut, User, CheckCircle, AlertCircle } from "lucide-react"
 
+interface SteamUser {
+  steamid: string
+  personaname: string
+  avatar: string
+  avatarmedium: string
+  avatarfull: string
+}
+
 interface SteamLoginProps {
   onAuthChange?: (isAuthenticated: boolean, steamId?: string) => void
 }
@@ -14,6 +22,7 @@ interface SteamLoginProps {
 export function SteamLogin({ onAuthChange }: SteamLoginProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [steamId, setSteamId] = useState<string | null>(null)
+  const [steamUser, setSteamUser] = useState<SteamUser | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [authMessage, setAuthMessage] = useState<string | null>(null)
 
@@ -59,10 +68,31 @@ export function SteamLogin({ onAuthChange }: SteamLoginProps) {
         const data = await response.json()
         setIsAuthenticated(data.authenticated)
         setSteamId(data.steamId)
+
+        if (data.authenticated && data.steamId) {
+          fetchSteamProfile(data.steamId)
+        } else {
+          setSteamUser(null)
+        }
+
         onAuthChange?.(data.authenticated, data.steamId)
       }
     } catch (error) {
       console.log("[v0] Error checking auth status:", error)
+    }
+  }
+
+  const fetchSteamProfile = async (steamId: string) => {
+    try {
+      const response = await fetch(`/api/steam/user-profile?steamid=${steamId}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.response?.players?.[0]) {
+          setSteamUser(data.response.players[0])
+        }
+      }
+    } catch (error) {
+      console.log("[v0] Error fetching Steam profile:", error)
     }
   }
 
@@ -102,6 +132,7 @@ export function SteamLogin({ onAuthChange }: SteamLoginProps) {
       if (response.ok) {
         setIsAuthenticated(false)
         setSteamId(null)
+        setSteamUser(null) // clear user profile data on logout
         onAuthChange?.(false)
         setAuthMessage("Successfully logged out from Steam.")
         setTimeout(() => setAuthMessage(null), 3000)
@@ -152,7 +183,17 @@ export function SteamLogin({ onAuthChange }: SteamLoginProps) {
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Authenticated
                 </Badge>
-                {steamId && <span className="text-sm text-slate-400">Steam ID: {steamId}</span>}
+                {steamUser && (
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={steamUser.avatar || "/placeholder.svg"}
+                      alt={steamUser.personaname}
+                      className="w-6 h-6 rounded-full"
+                    />
+                    <span className="text-sm text-slate-300 font-medium">{steamUser.personaname}</span>
+                  </div>
+                )}
+                {steamId && !steamUser && <span className="text-sm text-slate-400">Steam ID: {steamId}</span>}
               </>
             ) : (
               <Badge variant="secondary" className="bg-slate-600/30 text-slate-300 border-slate-500/50">

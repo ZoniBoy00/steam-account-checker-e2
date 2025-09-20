@@ -157,7 +157,7 @@ export function TokenInput({
             <Label htmlFor="inventory-toggle" className="text-sm font-medium text-slate-200">
               Check CS2 Inventory Value
             </Label>
-            <p className="text-xs text-slate-400 mt-1">Requires Steam authentication for private inventories</p>
+            <p className="text-xs text-slate-400 mt-1">Requires Steam authentication for inventories</p>
           </div>
           <Switch id="inventory-toggle" checked={checkInventory} onCheckedChange={setCheckInventory} />
         </div>
