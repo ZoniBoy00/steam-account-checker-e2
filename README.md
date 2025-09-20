@@ -67,8 +67,8 @@ Steam Account Checker is a comprehensive web application that allows you to vali
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/ZoniBoy00/steam-account-checker.git
-   cd steam-account-checker
+   git clone https://github.com/ZoniBoy00/steam-account-checker-e2.git
+   cd steam-account-checker-e2
    ```
 
 2. **Install dependencies**
