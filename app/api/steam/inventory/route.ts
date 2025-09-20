@@ -102,7 +102,13 @@ export async function GET(request: NextRequest) {
           ]
         : []),
 
-      // Method 2: Community inventory JSON endpoint (new format) - Try authenticated first
+      // Method 2: SkinBackpack API (reliable third-party service)
+      {
+        url: `https://skinbackpack.com/api/cs2/inventory/${sanitizedSteamId}`,
+        type: "skinbackpack" as const,
+      },
+
+      // Method 3: Community inventory JSON endpoint (new format) - Try authenticated first
       ...(isAuthenticated
         ? [
             {
@@ -112,13 +118,13 @@ export async function GET(request: NextRequest) {
           ]
         : []),
 
-      // Method 3: Community inventory JSON endpoint (new format) - Public access
+      // Method 4: Community inventory JSON endpoint (new format) - Public access
       {
         url: `https://steamcommunity.com/inventory/${sanitizedSteamId}/${CS2_APP_ID}/2?l=english&count=5000`,
         type: "community_new" as const,
       },
 
-      // Method 4: Community inventory JSON endpoint (legacy format)
+      // Method 5: Community inventory JSON endpoint (legacy format)
       {
         url: `https://steamcommunity.com/profiles/${sanitizedSteamId}/inventory/json/${CS2_APP_ID}/2?l=english&count=5000`,
         type: "community_legacy" as const,
@@ -176,7 +182,41 @@ export async function GET(request: NextRequest) {
             throw new Error("Invalid JSON response")
           }
 
-          if (method.type === "webapi") {
+          // Handle SkinBackpack API response
+          if (method.type === "skinbackpack") {
+            // SkinBackpack API format
+            if (data.steamUser && data.inventory) {
+              const inventoryValue = data.inventory.inventoryValue || data.steamUser.inventoryValue || 0
+              const itemCount = data.inventory.skins ? data.inventory.skins.length : 0
+
+              clearTimeout(timeoutId)
+              return NextResponse.json(
+                {
+                  inventoryValue: Math.round(inventoryValue * 100) / 100,
+                  itemCount,
+                  isPrivate: false,
+                  error: null,
+                  method: "SkinBackpack API",
+                },
+                {
+                  headers: {
+                    "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+                    "Cache-Control": "private, no-cache",
+                  },
+                },
+              )
+            } else if (data.error) {
+              if (data.error.includes("private") || data.error.includes("Private")) {
+                lastError = "Private inventory"
+                continue
+              }
+              lastError = data.error
+              continue
+            } else {
+              lastError = "No inventory data from SkinBackpack"
+              continue
+            }
+          } else if (method.type === "webapi") {
             // Steam Web API format
             if (data.response && data.response.success === 1) {
               const items = data.response.items || []

@@ -213,7 +213,6 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
     }
   }
 
-  console.error("Error fetching inventory info after retries:", lastError)
   return {
     inventoryValue: 0,
     itemCount: 0,
@@ -275,7 +274,7 @@ function parseTokenFormat(tokenString: string): TokenInfo {
     // Fallback: parse as cookie string
     tokenInfo.cookies = parseCookiesFromLine(tokenString)
   } catch (error) {
-    console.error("Error parsing token format:", error)
+    // Silent error handling for token parsing
   }
 
   return tokenInfo
@@ -471,7 +470,7 @@ function extractSteamIdFromToken(tokenString: string): string | undefined {
       }
     }
   } catch (error) {
-    console.error("Token parsing error:", error)
+    // Silent error handling for token parsing
   }
 
   return undefined
@@ -547,7 +546,6 @@ async function getUserProfile(steamId: string, apiKey: string): Promise<UserProf
     }
   }
 
-  console.error("Error fetching user profile after retries:", lastError)
   return {
     username: "Unknown",
     real_name: "Not specified",
@@ -607,7 +605,6 @@ async function getBanInfo(steamId: string, apiKey: string): Promise<BanInfo> {
     }
   }
 
-  console.error("Error fetching ban info after retries:", lastError)
   return {
     VACBanned: false,
     CommunityBanned: false,
