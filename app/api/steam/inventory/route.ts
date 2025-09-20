@@ -240,6 +240,10 @@ export async function GET(request: NextRequest) {
               descriptionCount: data.response?.descriptions?.length || 0,
               errorMessage: data.error_message,
               fullResponseKeys: Object.keys(data),
+              responseSuccess: data.response?.success,
+              responseError: data.response?.error,
+              hasError: !!data.error,
+              errorCode: data.error_code,
             })
 
             if (data.response && data.response.success === 1) {
@@ -269,13 +273,27 @@ export async function GET(request: NextRequest) {
               console.log(`[Inventory API] Steam Web API reported private inventory (success=15)`)
               continue
             } else {
-              console.log(`[Inventory API] Steam Web API unexpected response:`, {
+              const errorDetails = {
                 success: data.response?.success,
                 error: data.error,
                 errorMessage: data.error_message,
-                fullResponse: JSON.stringify(data).substring(0, 500),
-              })
-              lastError = data.error_message || data.error || `Steam Web API returned success=${data.response?.success}`
+                errorCode: data.error_code,
+                responseKeys: data.response ? Object.keys(data.response) : [],
+                hasItems: !!data.response?.items,
+                itemsLength: data.response?.items?.length || 0,
+                fullResponse: JSON.stringify(data).substring(0, 1000),
+              }
+              console.log(`[Inventory API] Steam Web API detailed error analysis:`, errorDetails)
+
+              if (data.error_message) {
+                lastError = `Steam Web API Error: ${data.error_message}`
+              } else if (data.error) {
+                lastError = `Steam Web API Error: ${data.error}`
+              } else if (data.response?.success === 0) {
+                lastError = "Steam Web API returned success=0 (no data available)"
+              } else {
+                lastError = `Steam Web API unexpected response: success=${data.response?.success}`
+              }
               continue
             }
           } else {

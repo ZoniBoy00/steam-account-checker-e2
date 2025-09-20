@@ -28,12 +28,6 @@ export function NotificationCenter({ notifications, onMarkAsRead, onDelete, onCl
   const [isOpen, setIsOpen] = useState(false)
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  console.log("[v0] NotificationCenter render:", {
-    notificationCount: notifications.length,
-    unreadCount,
-    isOpen,
-  })
-
   const getIcon = (variant: string) => {
     switch (variant) {
       case "success":
@@ -78,12 +72,10 @@ export function NotificationCenter({ notifications, onMarkAsRead, onDelete, onCl
   }
 
   const handleTriggerClick = () => {
-    console.log("[v0] Notification bell clicked, current isOpen:", isOpen)
     setIsOpen(!isOpen)
   }
 
   const handleOpenChange = (open: boolean) => {
-    console.log("[v0] Popover open state changed to:", open)
     setIsOpen(open)
   }
 
@@ -107,8 +99,13 @@ export function NotificationCenter({ notifications, onMarkAsRead, onDelete, onCl
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0 bg-slate-800 border-slate-700" align="end" sideOffset={5}>
-        <Card className="border-0 shadow-none">
+      <PopoverContent
+        className="w-96 p-0 bg-slate-800 border-slate-700 z-[9999]"
+        align="end"
+        sideOffset={5}
+        style={{ zIndex: 9999 }}
+      >
+        <Card className="border-0 shadow-none bg-slate-800">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg text-slate-200">
