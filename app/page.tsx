@@ -312,6 +312,20 @@ export default function SteamCheckerPage() {
       if (results.stats.invalid > 0) {
         showWarning(`${results.stats.invalid} tokens are invalid or malformed`, "Invalid Tokens")
       }
+
+      const inventoryIssues = results.accounts.filter(
+        (account) =>
+          account.inventoryError &&
+          !account.inventoryError.includes("private") &&
+          !account.inventoryError.includes("Private"),
+      ).length
+
+      if (inventoryIssues > 0 && checkInventory) {
+        showInfo(
+          `${inventoryIssues} accounts had inventory access issues. This is normal for some Steam configurations.`,
+          "Inventory Access Info",
+        )
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred while checking accounts"
       showError(errorMessage, "Check Failed")
@@ -413,20 +427,33 @@ export default function SteamCheckerPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
-      {/* Floating orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse delay-2000"></div>
+        {/* Primary floating orbs with enhanced glow */}
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-gradient-to-r from-blue-500/15 to-cyan-500/10 rounded-full blur-3xl animate-pulse-glow"></div>
+        <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-gradient-to-r from-purple-500/12 to-pink-500/8 rounded-full blur-3xl animate-pulse-glow delay-1000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-gradient-to-r from-cyan-500/10 to-blue-500/15 rounded-full blur-3xl animate-pulse-glow delay-2000"></div>
 
-        {/* Animated grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.03)_1px,transparent_1px)] bg-[size:50px_50px] animate-[drift_20s_ease-in-out_infinite]"></div>
+        {/* Secondary smaller orbs for depth */}
+        <div className="absolute top-1/2 right-1/3 w-48 h-48 bg-gradient-to-r from-indigo-500/8 to-purple-500/6 rounded-full blur-2xl animate-pulse-glow delay-500"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-gradient-to-r from-teal-500/6 to-cyan-500/8 rounded-full blur-2xl animate-pulse-glow delay-1500"></div>
 
-        {/* Subtle moving particles */}
-        <div className="absolute top-10 left-10 w-2 h-2 bg-blue-400/30 rounded-full animate-[float_6s_ease-in-out_infinite]"></div>
-        <div className="absolute top-1/3 right-20 w-1 h-1 bg-purple-400/40 rounded-full animate-[float_8s_ease-in-out_infinite_reverse]"></div>
-        <div className="absolute bottom-1/3 left-1/2 w-1.5 h-1.5 bg-cyan-400/35 rounded-full animate-[float_7s_ease-in-out_infinite]"></div>
-        <div className="absolute top-2/3 right-1/3 w-1 h-1 bg-blue-300/30 rounded-full animate-[float_9s_ease-in-out_infinite_reverse]"></div>
+        {/* Enhanced animated grid pattern with shimmer effect */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.04)_1px,transparent_1px)] bg-[size:60px_60px] animate-drift"></div>
+
+        {/* Diagonal grid overlay for more complexity */}
+        <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(139,92,246,0.02)_1px,transparent_1px),linear-gradient(-45deg,rgba(139,92,246,0.02)_1px,transparent_1px)] bg-[size:80px_80px] animate-drift delay-1000 opacity-50"></div>
+
+        {/* Enhanced floating particles with varied sizes and colors */}
+        <div className="absolute top-10 left-10 w-3 h-3 bg-blue-400/40 rounded-full animate-float shadow-lg shadow-blue-400/20"></div>
+        <div className="absolute top-1/3 right-20 w-2 h-2 bg-purple-400/50 rounded-full animate-float-reverse shadow-lg shadow-purple-400/25"></div>
+        <div className="absolute bottom-1/3 left-1/2 w-2.5 h-2.5 bg-cyan-400/45 rounded-full animate-float delay-1000 shadow-lg shadow-cyan-400/20"></div>
+        <div className="absolute top-2/3 right-1/3 w-1.5 h-1.5 bg-blue-300/35 rounded-full animate-float-reverse delay-500 shadow-lg shadow-blue-300/15"></div>
+        <div className="absolute top-1/6 left-2/3 w-2 h-2 bg-indigo-400/40 rounded-full animate-float delay-2000 shadow-lg shadow-indigo-400/20"></div>
+        <div className="absolute bottom-1/6 right-1/6 w-1 h-1 bg-teal-400/30 rounded-full animate-float-reverse delay-1500 shadow-lg shadow-teal-400/15"></div>
+
+        {/* Subtle light rays */}
+        <div className="absolute top-0 left-1/4 w-px h-full bg-gradient-to-b from-transparent via-blue-400/10 to-transparent animate-pulse delay-3000"></div>
+        <div className="absolute top-0 right-1/3 w-px h-full bg-gradient-to-b from-transparent via-purple-400/8 to-transparent animate-pulse delay-4000"></div>
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 relative z-10">
@@ -652,28 +679,28 @@ export default function SteamCheckerPage() {
         </div>
 
         <Tabs defaultValue="checker" className="space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-slate-700 h-auto">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 h-auto rounded-xl shadow-lg">
             <TabsTrigger
               value="checker"
-              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm"
+              className="data-[state=active]:bg-blue-600/40 data-[state=active]:text-blue-100 data-[state=active]:shadow-md text-slate-300 hover:text-slate-200 transition-all duration-200 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg"
             >
-              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+              <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Token Checker</span>
               <span className="sm:hidden">Checker</span>
             </TabsTrigger>
             <TabsTrigger
               value="results"
-              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 sm:py-3 text-xs sm:text-sm"
+              className="data-[state=active]:bg-blue-600/40 data-[state=active]:text-blue-100 data-[state=active]:shadow-md text-slate-300 hover:text-slate-200 transition-all duration-200 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg"
             >
-              <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+              <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Results ({accounts.length})</span>
-              <span className="sm:hidden">Results</span>
+              <span className="sm:hidden">Results ({accounts.length})</span>
             </TabsTrigger>
             <TabsTrigger
               value="settings"
-              className="data-[state=active]:bg-blue-600/30 data-[state=active]:text-blue-200 text-slate-300 flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm"
+              className="data-[state=active]:bg-blue-600/40 data-[state=active]:text-blue-100 data-[state=active]:shadow-md text-slate-300 hover:text-slate-200 transition-all duration-200 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg"
             >
-              <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+              <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
               <span className="sm:hidden">Settings</span>
             </TabsTrigger>

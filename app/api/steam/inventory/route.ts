@@ -133,6 +133,7 @@ export async function GET(request: NextRequest) {
 
     let response: Response | null = null
     let lastError = ""
+    const methodErrors: string[] = []
 
     for (const method of inventoryMethods) {
       try {
@@ -177,8 +178,10 @@ export async function GET(request: NextRequest) {
               responseText.includes("This inventory is currently private")
             ) {
               lastError = "Private inventory detected"
+              methodErrors.push(`${method.type}: Private inventory`)
               continue
             }
+            methodErrors.push(`${method.type}: Invalid JSON response`)
             throw new Error("Invalid JSON response")
           }
 
@@ -208,12 +211,15 @@ export async function GET(request: NextRequest) {
             } else if (data.error) {
               if (data.error.includes("private") || data.error.includes("Private")) {
                 lastError = "Private inventory"
+                methodErrors.push(`${method.type}: Private inventory`)
                 continue
               }
               lastError = data.error
+              methodErrors.push(`${method.type}: ${data.error}`)
               continue
             } else {
               lastError = "No inventory data from SkinBackpack"
+              methodErrors.push(`${method.type}: No inventory data`)
               continue
             }
           } else if (method.type === "webapi") {
@@ -241,20 +247,33 @@ export async function GET(request: NextRequest) {
             } else if (data.response && data.response.success === 15) {
               // Private inventory
               lastError = "Private inventory"
+              methodErrors.push(`${method.type}: Private inventory`)
               continue
             } else {
-              if (data.error_message?.includes("Access Denied") || data.error_message?.includes("Invalid API Key")) {
-                lastError = `Steam Web API Error: Invalid or unauthorized API key`
+              if (data.error_message?.includes("Access Denied")) {
+                lastError = `Steam Web API: Access denied - API key may lack permissions`
+                methodErrors.push(`${method.type}: Access denied`)
+              } else if (data.error_message?.includes("Invalid API Key")) {
+                lastError = `Steam Web API: Invalid API key format or expired`
+                methodErrors.push(`${method.type}: Invalid API key`)
               } else if (data.error_message?.includes("Internal Server Error")) {
-                lastError = `Steam Web API Error: Steam servers temporarily unavailable`
+                lastError = `Steam Web API: Steam servers temporarily unavailable`
+                methodErrors.push(`${method.type}: Server error`)
+              } else if (data.error_message?.includes("Forbidden")) {
+                lastError = `Steam Web API: Request forbidden - check API key permissions`
+                methodErrors.push(`${method.type}: Forbidden`)
               } else if (data.error_message) {
-                lastError = `Steam Web API Error: ${data.error_message}`
+                lastError = `Steam Web API: ${data.error_message}`
+                methodErrors.push(`${method.type}: ${data.error_message}`)
               } else if (data.error) {
-                lastError = `Steam Web API Error: ${data.error}`
+                lastError = `Steam Web API: ${data.error}`
+                methodErrors.push(`${method.type}: ${data.error}`)
               } else if (data.response?.success === 0) {
-                lastError = "Steam Web API returned success=0 (no data available)"
+                lastError = "Steam Web API: No data available for this inventory"
+                methodErrors.push(`${method.type}: No data available`)
               } else {
-                lastError = `Steam Web API unexpected response: success=${data.response?.success}`
+                lastError = `Steam Web API: Unexpected response format`
+                methodErrors.push(`${method.type}: Unexpected response`)
               }
               continue
             }
@@ -263,9 +282,11 @@ export async function GET(request: NextRequest) {
             if (data.success === false) {
               if (data.Error && (data.Error.includes("private") || data.Error.includes("Private"))) {
                 lastError = "Private inventory"
+                methodErrors.push(`${method.type}: Private inventory`)
                 continue
               }
               lastError = data.Error || "No inventory data available"
+              methodErrors.push(`${method.type}: ${data.Error || "No data"}`)
               continue
             }
 
@@ -324,22 +345,33 @@ export async function GET(request: NextRequest) {
             const errorText = await response.text()
             if (errorText.includes("private") || errorText.includes("Private")) {
               lastError = "Private inventory"
+              methodErrors.push(`${method.type}: Private inventory`)
             } else {
-              lastError = "API blocked"
+              lastError = "Access forbidden"
+              methodErrors.push(`${method.type}: 403 Forbidden`)
             }
           } catch {
             lastError = "403 Forbidden"
+            methodErrors.push(`${method.type}: 403 Forbidden`)
           }
+          response = null
+        } else if (response.status === 429) {
+          lastError = "Rate limited"
+          methodErrors.push(`${method.type}: Rate limited`)
           response = null
         } else if (response.status === 400) {
           lastError = "400 Bad Request"
+          methodErrors.push(`${method.type}: Bad request`)
           response = null
         } else {
           lastError = `HTTP ${response.status}`
+          methodErrors.push(`${method.type}: HTTP ${response.status}`)
           response = null
         }
       } catch (error) {
-        lastError = error instanceof Error ? error.message : "Unknown error"
+        const errorMsg = error instanceof Error ? error.message : "Unknown error"
+        lastError = errorMsg
+        methodErrors.push(`${method.type}: ${errorMsg}`)
         response = null
       }
     }
@@ -364,15 +396,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (lastError.includes("Invalid or unauthorized API key")) {
+    if (lastError.includes("Invalid API key") || lastError.includes("Access denied")) {
       return NextResponse.json(
         {
-          error: "Steam Web API access issue. Inventory data may be limited.",
+          error: "Steam Web API access issue. Using alternative methods.",
           inventoryValue: 0,
           itemCount: 0,
           isPrivate: null,
-          method: "limited_access",
-          suggestion: "Verify your Steam Web API key configuration if needed",
+          method: "api_key_issue",
+          suggestion: "Inventory data may be limited without a valid Steam Web API key",
         },
         {
           status: 200,
@@ -383,52 +415,55 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (lastError.includes("403") || lastError.includes("400") || lastError.includes("API blocked")) {
-      if (isAuthenticated) {
-        return NextResponse.json(
-          {
-            error: "Unable to access inventory data at this time.",
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: null,
-            method: "access_limited",
-            suggestion: "Try again later or check if inventory is public",
+    if (lastError.includes("Rate limited") || lastError.includes("429")) {
+      return NextResponse.json(
+        {
+          error: "Steam API rate limit reached. Please try again later.",
+          inventoryValue: 0,
+          itemCount: 0,
+          isPrivate: null,
+          method: "rate_limited",
+          suggestion: "Wait a few minutes before checking this inventory again",
+        },
+        {
+          status: 200,
+          headers: {
+            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
           },
-          {
-            status: 200,
-            headers: {
-              "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-            },
+        },
+      )
+    }
+
+    if (lastError.includes("403") || lastError.includes("Forbidden")) {
+      return NextResponse.json(
+        {
+          error: "Steam inventory access temporarily restricted.",
+          inventoryValue: 0,
+          itemCount: 0,
+          isPrivate: null,
+          method: "access_restricted",
+          suggestion: isAuthenticated
+            ? "Try again later - Steam may be experiencing high traffic"
+            : "Steam authentication might help with inventory access",
+          requiresAuth: !isAuthenticated,
+        },
+        {
+          status: 200,
+          headers: {
+            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
           },
-        )
-      } else {
-        return NextResponse.json(
-          {
-            error: "Steam authentication may be required for inventory access",
-            inventoryValue: 0,
-            itemCount: 0,
-            isPrivate: null,
-            method: "auth_suggested",
-            requiresAuth: true,
-          },
-          {
-            status: 200,
-            headers: {
-              "X-RateLimit-Remaining": rateLimit.remaining.toString(),
-            },
-          },
-        )
-      }
+        },
+      )
     }
 
     return NextResponse.json(
       {
-        error: "Steam inventory temporarily unavailable. Please try again later.",
+        error: "Unable to access inventory at this time.",
         inventoryValue: 0,
         itemCount: 0,
-        isPrivate: false,
+        isPrivate: null,
         method: "temporarily_unavailable",
-        suggestion: "Steam servers may be busy - try again in a few minutes",
+        suggestion: "Steam servers may be busy. Try again in a few minutes.",
       },
       {
         status: 200,
@@ -438,30 +473,42 @@ export async function GET(request: NextRequest) {
       },
     )
   } catch (error) {
-    console.error("Error fetching Steam inventory:", error)
+    console.error("Steam inventory API error:", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      steamId: sanitizedSteamId,
+      hasApiKey: !!apiKey,
+      isAuthenticated,
+    })
 
     if (error instanceof Error) {
       if (error.name === "AbortError" || error.message === "Connection timeout") {
         return NextResponse.json(
           {
-            error: "Request timeout",
+            error: "Request timeout - Steam servers may be slow",
             inventoryValue: 0,
             itemCount: 0,
-            isPrivate: false,
+            isPrivate: null,
             method: "timeout",
+            suggestion: "Try again in a moment",
           },
-          { status: 200 },
+          {
+            status: 200,
+            headers: {
+              "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+            },
+          },
         )
       }
     }
 
     return NextResponse.json(
       {
-        error: "Steam inventory temporarily unavailable. Try again later.",
+        error: "Steam inventory service temporarily unavailable.",
         inventoryValue: 0,
         itemCount: 0,
-        isPrivate: false,
-        method: "error",
+        isPrivate: null,
+        method: "service_error",
+        suggestion: "Please try again later",
       },
       {
         status: 200,
@@ -528,7 +575,6 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
 
       if (response.status === 429) {
         debugInfo.push(`Rate limited on attempt ${attempt + 1}`)
-        // Rate limited, wait and retry
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
           continue
@@ -546,7 +592,6 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
       if (data.error) {
         debugInfo.push(`API returned error: ${data.error}`)
 
-        // Check if it's a private inventory
         if (data.isPrivate) {
           return {
             inventoryValue: 0,
@@ -557,7 +602,6 @@ async function getInventoryInfo(steamId: string): Promise<InventoryInfo> {
           }
         }
 
-        // Check if authentication is required
         if (data.requiresAuth) {
           return {
             inventoryValue: 0,
